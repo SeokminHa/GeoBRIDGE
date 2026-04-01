@@ -1,0 +1,257 @@
+{
+  "run_name": "mid_dt_kproj",
+  "analysis_label": "k_auto",
+  "adata_shape": [
+    3696,
+    2000
+  ],
+  "recover_dynamics_succeeded": true,
+  "latent_time_exists": true,
+  "pt_forced": {
+    "force_dpt": false,
+    "force_latent_time": true
+  },
+  "pair_settings": {
+    "realdata_preset": "default",
+    "min_dt": 0.05,
+    "max_dt": 0.1,
+    "pair_mode": "stream_per_cell",
+    "global_max_pairs": 30000,
+    "max_pairs_per_cell": 40,
+    "stream_num_threads": 1
+  },
+  "k_selection": {
+    "max_k": 40,
+    "tau": 2.5,
+    "tail_fraction": 0.25,
+    "tail_min_start": 15,
+    "k_clamp_deprecated": 10,
+    "k_override": null,
+    "k_selected_rule": 3,
+    "k_auto_raw_by_branch": {
+      "Beta_branch": 19,
+      "Alpha_branch": 20
+    },
+    "k_selection_rule": {
+      "K_cap": 15,
+      "r_min": 0.05,
+      "asym_max": 3.0
+    }
+  },
+  "k_selection_diagnostics": [
+    {
+      "k": 0,
+      "min_retained_variance": 1.0,
+      "mean_retained_variance": 1.0,
+      "max_retained_variance": 1.0,
+      "worst_branch_retained_variance": "Beta_branch",
+      "branch_variance_asymmetry": 0.9999999900000002,
+      "mean_num_proxy": 0.018664511202495213,
+      "score_k": 0.9813354887975048
+    },
+    {
+      "k": 1,
+      "min_retained_variance": 0.49740177872039903,
+      "mean_retained_variance": 0.5198776390158074,
+      "max_retained_variance": 0.5423534993112158,
+      "worst_branch_retained_variance": "Beta_branch",
+      "branch_variance_asymmetry": 1.090373037673343,
+      "mean_num_proxy": -0.004879866955111627,
+      "score_k": 0.5149977720606957
+    },
+    {
+      "k": 2,
+      "min_retained_variance": 0.218714831967404,
+      "mean_retained_variance": 0.21930722638672195,
+      "max_retained_variance": 0.21989962080603992,
+      "worst_branch_retained_variance": "Beta_branch",
+      "branch_variance_asymmetry": 1.0054170024675897,
+      "mean_num_proxy": -0.010475065281198617,
+      "score_k": 0.20883216110552333
+    },
+    {
+      "k": 3,
+      "min_retained_variance": 0.0810273454203502,
+      "mean_retained_variance": 0.1027712247208639,
+      "max_retained_variance": 0.12451510402137761,
+      "worst_branch_retained_variance": "Alpha_branch",
+      "branch_variance_asymmetry": 1.5367045286795251,
+      "mean_num_proxy": -0.008710601683568069,
+      "score_k": 0.09406062303729584
+    },
+    {
+      "k": 4,
+      "min_retained_variance": 0.0479870357353423,
+      "mean_retained_variance": 0.059038776051747406,
+      "max_retained_variance": 0.07009051636815251,
+      "worst_branch_retained_variance": "Alpha_branch",
+      "branch_variance_asymmetry": 1.4606132820660616,
+      "mean_num_proxy": -0.013735896233855724,
+      "score_k": 0.04530287981789168
+    },
+    {
+      "k": 5,
+      "min_retained_variance": 0.03648259660146921,
+      "mean_retained_variance": 0.04503877416511072,
+      "max_retained_variance": 0.05359495172875224,
+      "worst_branch_retained_variance": "Alpha_branch",
+      "branch_variance_asymmetry": 1.4690548927661844,
+      "mean_num_proxy": -0.02185881185026664,
+      "score_k": 0.02317996231484408
+    },
+    {
+      "k": 6,
+      "min_retained_variance": 0.028187133514542245,
+      "mean_retained_variance": 0.03480032688944307,
+      "max_retained_variance": 0.04141352026434388,
+      "worst_branch_retained_variance": "Alpha_branch",
+      "branch_variance_asymmetry": 1.4692343778282433,
+      "mean_num_proxy": -0.02920941432585314,
+      "score_k": 0.005590912563589928
+    },
+    {
+      "k": 7,
+      "min_retained_variance": 0.021808746618216447,
+      "mean_retained_variance": 0.026984107164819755,
+      "max_retained_variance": 0.03215946771142306,
+      "worst_branch_retained_variance": "Alpha_branch",
+      "branch_variance_asymmetry": 1.4746126188854278,
+      "mean_num_proxy": -0.02712104439117011,
+      "score_k": -0.0001369372263503553
+    },
+    {
+      "k": 8,
+      "min_retained_variance": 0.016979227228452135,
+      "mean_retained_variance": 0.021404902192696067,
+      "max_retained_variance": 0.02583057715694,
+      "worst_branch_retained_variance": "Alpha_branch",
+      "branch_variance_asymmetry": 1.5213037434718009,
+      "mean_num_proxy": -0.031036178077186838,
+      "score_k": -0.00963127588449077
+    },
+    {
+      "k": 9,
+      "min_retained_variance": 0.012586974682567444,
+      "mean_retained_variance": 0.01705690221786628,
+      "max_retained_variance": 0.021526829753165118,
+      "worst_branch_retained_variance": "Alpha_branch",
+      "branch_variance_asymmetry": 1.7102451695980103,
+      "mean_num_proxy": -0.03496998604057051,
+      "score_k": -0.017913083822704227
+    },
+    {
+      "k": 10,
+      "min_retained_variance": 0.01005393037895644,
+      "mean_retained_variance": 0.013929443462255036,
+      "max_retained_variance": 0.017804956545553634,
+      "worst_branch_retained_variance": "Alpha_branch",
+      "branch_variance_asymmetry": 1.770943120253685,
+      "mean_num_proxy": -0.027971302894336095,
+      "score_k": -0.014041859432081059
+    },
+    {
+      "k": 11,
+      "min_retained_variance": 0.008420600247285666,
+      "mean_retained_variance": 0.01143427483615522,
+      "max_retained_variance": 0.014447949425024774,
+      "worst_branch_retained_variance": "Alpha_branch",
+      "branch_variance_asymmetry": 1.715784129740714,
+      "mean_num_proxy": -0.03119935927427478,
+      "score_k": -0.01976508443811956
+    },
+    {
+      "k": 12,
+      "min_retained_variance": 0.006918117889343952,
+      "mean_retained_variance": 0.00952266870690895,
+      "max_retained_variance": 0.012127219524473945,
+      "worst_branch_retained_variance": "Alpha_branch",
+      "branch_variance_asymmetry": 1.7529626104706157,
+      "mean_num_proxy": -0.014573643874808584,
+      "score_k": -0.005050975167899634
+    },
+    {
+      "k": 13,
+      "min_retained_variance": 0.005759400038477063,
+      "mean_retained_variance": 0.007932790187226467,
+      "max_retained_variance": 0.010106180335975871,
+      "worst_branch_retained_variance": "Alpha_branch",
+      "branch_variance_asymmetry": 1.754724922945095,
+      "mean_num_proxy": -0.01770235736682252,
+      "score_k": -0.009769567179596051
+    },
+    {
+      "k": 14,
+      "min_retained_variance": 0.004918634860325861,
+      "mean_retained_variance": 0.006672044771133752,
+      "max_retained_variance": 0.008425454681941643,
+      "worst_branch_retained_variance": "Alpha_branch",
+      "branch_variance_asymmetry": 1.7129625986828119,
+      "mean_num_proxy": -0.02100397720660066,
+      "score_k": -0.014331932435466908
+    },
+    {
+      "k": 15,
+      "min_retained_variance": 0.004226750095125643,
+      "mean_retained_variance": 0.005771717976807806,
+      "max_retained_variance": 0.007316685858489969,
+      "worst_branch_retained_variance": "Alpha_branch",
+      "branch_variance_asymmetry": 1.7310388320661185,
+      "mean_num_proxy": -0.021061614953231698,
+      "score_k": -0.015289896976423892
+    }
+  ],
+  "branches": [
+    {
+      "run_name": "mid_dt_kproj",
+      "branch": "Beta_branch",
+      "label": "k_auto",
+      "n_cells": 2087,
+      "n_pairs": 60359,
+      "k_auto_raw": 19,
+      "k_used": 3,
+      "k_selected_rule": 3,
+      "pt_source": "latent_time",
+      "min_dt": 0.05,
+      "max_dt": 0.1,
+      "max_pairs_per_cell": 40,
+      "pair_mode": "stream_per_cell",
+      "global_max_pairs": 30000,
+      "variance_retained_trace_ratio": 0.12451510402137761,
+      "num_sum_over_abs": -0.006177386053464148,
+      "rule_min_retained_variance": 0.0810273454203502,
+      "rule_mean_retained_variance": 0.1027712247208639,
+      "rule_branch_variance_asymmetry": 1.5367045286795251,
+      "rule_mean_num_proxy": -0.008710601683568069,
+      "dt_mean": 0.07329537632415556,
+      "dt_median": 0.07245655058813319,
+      "dt_p90": 0.09407851470757383,
+      "dt_p95": 0.09701801665777966
+    },
+    {
+      "run_name": "mid_dt_kproj",
+      "branch": "Alpha_branch",
+      "label": "k_auto",
+      "n_cells": 1977,
+      "n_pairs": 54540,
+      "k_auto_raw": 20,
+      "k_used": 3,
+      "k_selected_rule": 3,
+      "pt_source": "latent_time",
+      "min_dt": 0.05,
+      "max_dt": 0.1,
+      "max_pairs_per_cell": 40,
+      "pair_mode": "stream_per_cell",
+      "global_max_pairs": 30000,
+      "variance_retained_trace_ratio": 0.0810273454203502,
+      "num_sum_over_abs": -0.011243817313671987,
+      "rule_min_retained_variance": 0.0810273454203502,
+      "rule_mean_retained_variance": 0.1027712247208639,
+      "rule_branch_variance_asymmetry": 1.5367045286795251,
+      "rule_mean_num_proxy": -0.008710601683568069,
+      "dt_mean": 0.07228237674024669,
+      "dt_median": 0.07111518722202137,
+      "dt_p90": 0.09326849560116748,
+      "dt_p95": 0.09665755720957118
+    }
+  ]
+}

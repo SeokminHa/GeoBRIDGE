@@ -1,0 +1,56 @@
+{
+  "adata_shape": [
+    3696,
+    2000
+  ],
+  "recover_dynamics_succeeded": true,
+  "latent_time_exists": true,
+  "pt_forced": {
+    "force_dpt": false,
+    "force_latent_time": true
+  },
+  "pair_settings": {
+    "realdata_preset": "default",
+    "min_dt": 0.02,
+    "max_dt": 0.25,
+    "pair_mode": "stream_per_cell",
+    "global_max_pairs": 30000,
+    "max_pairs_per_cell": 40,
+    "stream_num_threads": 1
+  },
+  "k_selection": {
+    "max_k": 40,
+    "tau": 2.5,
+    "tail_fraction": 0.25,
+    "tail_min_start": 15,
+    "k_override": null
+  },
+  "branches": [
+    {
+      "branch": "Beta_branch",
+      "label": "k_auto",
+      "n_cells": 2087,
+      "n_pairs": 76124,
+      "k_selected": 10,
+      "pt_source": "latent_time",
+      "min_dt": 0.02,
+      "max_dt": 0.25,
+      "max_pairs_per_cell": 40,
+      "pair_mode": "stream_per_cell",
+      "global_max_pairs": 30000
+    },
+    {
+      "branch": "Alpha_branch",
+      "label": "k_auto",
+      "n_cells": 1977,
+      "n_pairs": 71565,
+      "k_selected": 10,
+      "pt_source": "latent_time",
+      "min_dt": 0.02,
+      "max_dt": 0.25,
+      "max_pairs_per_cell": 40,
+      "pair_mode": "stream_per_cell",
+      "global_max_pairs": 30000
+    }
+  ]
+}

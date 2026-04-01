@@ -1,0 +1,50 @@
+[
+  {
+    "file": "LinearChain__branch_specific__rep0.npz",
+    "topology": "LinearChain",
+    "drift_type": "branch_specific",
+    "rep": 0
+  },
+  {
+    "file": "LinearChain__branch_specific__rep1.npz",
+    "topology": "LinearChain",
+    "drift_type": "branch_specific",
+    "rep": 1
+  },
+  {
+    "file": "Bifurcation__branch_specific__rep0.npz",
+    "topology": "Bifurcation",
+    "drift_type": "branch_specific",
+    "rep": 0
+  },
+  {
+    "file": "Bifurcation__branch_specific__rep1.npz",
+    "topology": "Bifurcation",
+    "drift_type": "branch_specific",
+    "rep": 1
+  },
+  {
+    "file": "Trifurcation__branch_specific__rep0.npz",
+    "topology": "Trifurcation",
+    "drift_type": "branch_specific",
+    "rep": 0
+  },
+  {
+    "file": "Trifurcation__branch_specific__rep1.npz",
+    "topology": "Trifurcation",
+    "drift_type": "branch_specific",
+    "rep": 1
+  },
+  {
+    "file": "ManyBifurcations__branch_specific__rep0.npz",
+    "topology": "ManyBifurcations",
+    "drift_type": "branch_specific",
+    "rep": 0
+  },
+  {
+    "file": "ManyBifurcations__branch_specific__rep1.npz",
+    "topology": "ManyBifurcations",
+    "drift_type": "branch_specific",
+    "rep": 1
+  }
+]

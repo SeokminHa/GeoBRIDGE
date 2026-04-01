@@ -1,0 +1,37 @@
+[2026-03-31 14:52:20] Loading cached AnnData: real_1_Pancreas\cache\pancreas_processed__default.h5ad
+[2026-03-31 14:52:25] Loaded cached adata shape=(3696, 2000).
+[2026-03-31 14:52:25] (cache) recover_dynamics_succeeded=True | latent_time_exists=True | final_pt_source=per-branch | force_latent_time=True | allow_dpt_fallback=False
+[2026-03-31 14:52:25] Computing covariates (total_counts, pct_counts_mt, cell cycle)…
+[2026-03-31 14:52:25] Saving UMAP + velocity stream plot…
+[2026-03-31 14:52:29] Preparing branch subsets + pseudotime…
+[2026-03-31 14:53:06] Branches: {'Beta_branch': {'n_cells': 2087, 'pt_source': 'latent_time'}, 'Alpha_branch': {'n_cells': 1977, 'pt_source': 'latent_time'}}
+[2026-03-31 14:53:06] [DEBUG] Δt stats:
+[2026-03-31 14:53:06]   mean:   0.07329537632415556
+[2026-03-31 14:53:06]   median: 0.07245655058813319
+[2026-03-31 14:53:06]   p90:    0.09407851470757383
+[2026-03-31 14:53:06]   p95:    0.09701801665777966
+[2026-03-31 14:53:06]   max:    0.09999785685662
+[2026-03-31 14:53:06] GeoBRIDGE: scoring branch=Beta_branch label=k_auto (cells=2087, genes=2000)…
+[2026-03-31 14:58:45] [DEBUG] k_auto_raw=19 k_used=3
+[2026-03-31 14:58:45] [DEBUG] variance retained: 0.12451510402137761
+[2026-03-31 14:58:45] [DEBUG] num/den proxy (sum/abs): -0.006177386053464148
+[2026-03-31 14:58:45] GeoBRIDGE summary: branch=Beta_branch label=k_auto n_cells=2087 n_pairs=60359 k_auto_raw=19 k_used=3 pt_source=latent_time dt=(0.05,0.1) max_pairs_per_cell=40
+[2026-03-31 14:59:31] [DEBUG] Δt stats:
+[2026-03-31 14:59:31]   mean:   0.07228237674024669
+[2026-03-31 14:59:31]   median: 0.07111518722202137
+[2026-03-31 14:59:31]   p90:    0.09326849560116748
+[2026-03-31 14:59:31]   p95:    0.09665755720957118
+[2026-03-31 14:59:31]   max:    0.09999785685662
+[2026-03-31 14:59:31] GeoBRIDGE: scoring branch=Alpha_branch label=k_auto (cells=1977, genes=2000)…
+[2026-03-31 15:04:07] [DEBUG] k_auto_raw=20 k_used=3
+[2026-03-31 15:04:07] [DEBUG] variance retained: 0.0810273454203502
+[2026-03-31 15:04:07] [DEBUG] num/den proxy (sum/abs): -0.011243817313671987
+[2026-03-31 15:04:07] GeoBRIDGE summary: branch=Alpha_branch label=k_auto n_cells=1977 n_pairs=54540 k_auto_raw=20 k_used=3 pt_source=latent_time dt=(0.05,0.1) max_pairs_per_cell=40
+[2026-03-31 15:04:36] Branch GeoBRIDGE summary table:
+[2026-03-31 15:04:37]  run_name       branch  label  n_cells  n_pairs  k_auto_raw  k_used   pt_source  min_dt  max_dt  max_pairs_per_cell       pair_mode  global_max_pairs  variance_retained_trace_ratio  num_sum_over_abs  dt_mean  dt_median   dt_p90   dt_p95
+mid_dt_k3  Beta_branch k_auto     2087    60359          19       3 latent_time    0.05     0.1                  40 stream_per_cell             30000                       0.124515         -0.006177 0.073295   0.072457 0.094079 0.097018
+mid_dt_k3 Alpha_branch k_auto     1977    54540          20       3 latent_time    0.05     0.1                  40 stream_per_cell             30000                       0.081027         -0.011244 0.072282   0.071115 0.093268 0.096658
+[2026-03-31 15:04:37] Plots / top-N use --analysis-label='k_auto' (score_mats keys per branch).
+[2026-03-31 15:04:37] Saving Top-N home-vs-away plots/tables…
+[2026-03-31 15:04:37] Saving branch-specificity plots (Pax4/Arx)…
+[2026-03-31 15:04:38] Done. Outputs written under outdir.

@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+.venv/
+venv/
+ENV/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+
+*.h5ad
+data/
+*/cache/
+# Optional: omit large regenerated artifacts (uncomment if you do not want them in git)
+# generated/
+# results/
+# simdata/

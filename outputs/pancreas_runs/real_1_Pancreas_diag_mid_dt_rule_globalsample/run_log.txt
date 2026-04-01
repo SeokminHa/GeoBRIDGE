@@ -1,0 +1,63 @@
+[2026-04-01 01:36:17] Loading cached AnnData: real_1_Pancreas\cache\pancreas_processed__default.h5ad
+[2026-04-01 01:36:18] Loaded cached adata shape=(3696, 2000).
+[2026-04-01 01:36:18] (cache) recover_dynamics_succeeded=True | latent_time_exists=True | final_pt_source=per-branch | force_latent_time=True | allow_dpt_fallback=False
+[2026-04-01 01:36:18] Computing covariates (total_counts, pct_counts_mt, cell cycle)…
+[2026-04-01 01:36:18] Saving UMAP + velocity stream plot…
+[2026-04-01 01:36:19] Preparing branch subsets + pseudotime…
+[2026-04-01 01:36:37] Branches: {'Beta_branch': {'n_cells': 2087, 'pt_source': 'latent_time'}, 'Alpha_branch': {'n_cells': 1977, 'pt_source': 'latent_time'}}
+[2026-04-01 01:36:37] [WARN] --k-clamp is deprecated and ignored (k is now selected by projection diagnostics).
+[2026-04-01 01:36:37] [DEBUG] Δt stats:
+[2026-04-01 01:36:37]   mean:   0.07329537632415556
+[2026-04-01 01:36:37]   median: 0.07245655058813319
+[2026-04-01 01:36:37]   p90:    0.09407851470757383
+[2026-04-01 01:36:37]   p95:    0.09701801665777966
+[2026-04-01 01:36:37]   max:    0.09999785685662
+[2026-04-01 01:39:08] [DEBUG] branch=Beta_branch k_auto_raw=19 n_pairs=30000
+[2026-04-01 01:39:08] [DEBUG] Δt stats:
+[2026-04-01 01:39:08]   mean:   0.07228237674024669
+[2026-04-01 01:39:08]   median: 0.07111518722202137
+[2026-04-01 01:39:08]   p90:    0.09326849560116748
+[2026-04-01 01:39:08]   p95:    0.09665755720957118
+[2026-04-01 01:39:08]   max:    0.09999785685662
+[2026-04-01 01:41:18] [DEBUG] branch=Alpha_branch k_auto_raw=18 n_pairs=30000
+[2026-04-01 01:41:18] [DEBUG] Projection-rule k selection (unsupervised):
+[2026-04-01 01:41:18] [DEBUG]   K_cap=15 r_min=0.05 asym_max=3.0
+[2026-04-01 01:41:18] [DEBUG]   k_auto_raw_by_branch={'Beta_branch': 19, 'Alpha_branch': 18}
+[2026-04-01 01:41:18] [DEBUG]   k_auto_raw_global(min)=18 => K_candidates=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+[2026-04-01 01:41:18] [DEBUG]   Per-k aggregate diagnostics:
+[2026-04-01 01:41:18] [DEBUG]     k= 0 min_ret=1.000000 mean_ret=1.000000 asym=1.000 mean_num_proxy=0.020348
+[2026-04-01 01:41:19] [DEBUG]     k= 1 min_ret=0.451013 mean_ret=0.492262 asym=1.183 mean_num_proxy=-0.005827
+[2026-04-01 01:41:20] [DEBUG]     k= 2 min_ret=0.168134 mean_ret=0.177398 asym=1.110 mean_num_proxy=-0.012935
+[2026-04-01 01:41:21] [DEBUG]     k= 3 min_ret=0.073045 mean_ret=0.097469 asym=1.669 mean_num_proxy=-0.012721
+[2026-04-01 01:41:22] [DEBUG]     k= 4 min_ret=0.045798 mean_ret=0.056701 asym=1.476 mean_num_proxy=-0.017179
+[2026-04-01 01:41:24] [DEBUG]     k= 5 min_ret=0.034647 mean_ret=0.043045 asym=1.485 mean_num_proxy=-0.016740
+[2026-04-01 01:41:25] [DEBUG]     k= 6 min_ret=0.027269 mean_ret=0.034016 asym=1.495 mean_num_proxy=-0.019130
+[2026-04-01 01:41:27] [DEBUG]     k= 7 min_ret=0.021079 mean_ret=0.027251 asym=1.586 mean_num_proxy=-0.029376
+[2026-04-01 01:41:28] [DEBUG]     k= 8 min_ret=0.016450 mean_ret=0.021402 asym=1.602 mean_num_proxy=-0.028532
+[2026-04-01 01:41:29] [DEBUG]     k= 9 min_ret=0.012087 mean_ret=0.016933 asym=1.802 mean_num_proxy=-0.032107
+[2026-04-01 01:41:31] [DEBUG]     k=10 min_ret=0.009628 mean_ret=0.013742 asym=1.855 mean_num_proxy=-0.021106
+[2026-04-01 01:41:32] [DEBUG]     k=11 min_ret=0.007955 mean_ret=0.011353 asym=1.855 mean_num_proxy=-0.028904
+[2026-04-01 01:41:33] [DEBUG]     k=12 min_ret=0.006599 mean_ret=0.009391 asym=1.846 mean_num_proxy=-0.019388
+[2026-04-01 01:41:35] [DEBUG]     k=13 min_ret=0.005469 mean_ret=0.007851 asym=1.871 mean_num_proxy=-0.021558
+[2026-04-01 01:41:36] [DEBUG]     k=14 min_ret=0.004641 mean_ret=0.006534 asym=1.816 mean_num_proxy=-0.021371
+[2026-04-01 01:41:38] [DEBUG]     k=15 min_ret=0.004054 mean_ret=0.005711 asym=1.818 mean_num_proxy=-0.019316
+[2026-04-01 01:41:38] [DEBUG]   k_largest_valid=3 -> k_selected=3 (score_k=0.084748)
+[2026-04-01 01:41:38] [DEBUG] k selection: k_auto_raw_by_branch={'Beta_branch': 19, 'Alpha_branch': 18} -> k_selected=3
+[2026-04-01 01:41:38] GeoBRIDGE: scoring branch=Beta_branch label=k_auto k_used=3 (cells=2087, genes=2000)…
+[2026-04-01 01:41:39] [DEBUG] k_auto_raw=19 k_used=3
+[2026-04-01 01:41:39] [DEBUG] variance retained: 0.12189312092290161
+[2026-04-01 01:41:39] [DEBUG] num/den proxy (sum/abs): -0.009617281302154852
+[2026-04-01 01:41:54] GeoBRIDGE summary: branch=Beta_branch label=k_auto n_cells=2087 n_pairs=30000 k_auto_raw=19 k_used=3 k_selected_rule=3 pt_source=latent_time dt=(0.05,0.1)
+[2026-04-01 01:41:54] GeoBRIDGE: scoring branch=Alpha_branch label=k_auto k_used=3 (cells=1977, genes=2000)…
+[2026-04-01 01:41:55] [DEBUG] k_auto_raw=18 k_used=3
+[2026-04-01 01:41:55] [DEBUG] variance retained: 0.07304509521615998
+[2026-04-01 01:41:55] [DEBUG] num/den proxy (sum/abs): -0.01582527289853743
+[2026-04-01 01:42:10] GeoBRIDGE summary: branch=Alpha_branch label=k_auto n_cells=1977 n_pairs=30000 k_auto_raw=18 k_used=3 k_selected_rule=3 pt_source=latent_time dt=(0.05,0.1)
+[2026-04-01 01:42:10] Branch GeoBRIDGE summary table:
+[2026-04-01 01:42:10]                 run_name       branch  label  n_cells  n_pairs  k_auto_raw  k_used  k_selected_rule   pt_source  min_dt  max_dt  max_pairs_per_cell     pair_mode  global_max_pairs  variance_retained_trace_ratio  num_sum_over_abs  rule_min_retained_variance  rule_mean_retained_variance  rule_branch_variance_asymmetry  rule_mean_num_proxy  dt_mean  dt_median   dt_p90   dt_p95
+mid_dt_rule_globalsample  Beta_branch k_auto     2087    30000          19       3                3 latent_time    0.05     0.1                  40 global_sample             30000                       0.121893         -0.009617                    0.073045                     0.097469                        1.668738            -0.012721 0.073295   0.072457 0.094079 0.097018
+mid_dt_rule_globalsample Alpha_branch k_auto     1977    30000          18       3                3 latent_time    0.05     0.1                  40 global_sample             30000                       0.073045         -0.015825                    0.073045                     0.097469                        1.668738            -0.012721 0.072282   0.071115 0.093268 0.096658
+[2026-04-01 01:42:10] Plots / top-N use --analysis-label='k_auto' (score_mats keys per branch).
+[2026-04-01 01:42:10] Saving Top-N home-vs-away plots/tables…
+[2026-04-01 01:42:10] Saving branch-specificity plots (Pax4/Arx)…
+[2026-04-01 01:42:11] Done. Outputs written under outdir.

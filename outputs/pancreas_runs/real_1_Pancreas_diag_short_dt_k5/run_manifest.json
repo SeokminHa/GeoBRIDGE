@@ -1,0 +1,74 @@
+{
+  "run_name": "short_dt_k5",
+  "adata_shape": [
+    3696,
+    2000
+  ],
+  "recover_dynamics_succeeded": true,
+  "latent_time_exists": true,
+  "pt_forced": {
+    "force_dpt": false,
+    "force_latent_time": true
+  },
+  "pair_settings": {
+    "realdata_preset": "default",
+    "min_dt": 0.02,
+    "max_dt": 0.08,
+    "pair_mode": "stream_per_cell",
+    "global_max_pairs": 30000,
+    "max_pairs_per_cell": 40,
+    "stream_num_threads": 1
+  },
+  "k_selection": {
+    "max_k": 40,
+    "tau": 2.5,
+    "tail_fraction": 0.25,
+    "tail_min_start": 15,
+    "k_clamp": 5,
+    "k_override": null
+  },
+  "branches": [
+    {
+      "run_name": "short_dt_k5",
+      "branch": "Beta_branch",
+      "label": "k_auto",
+      "n_cells": 2087,
+      "n_pairs": 67261,
+      "k_auto_raw": 19,
+      "k_used": 5,
+      "pt_source": "latent_time",
+      "min_dt": 0.02,
+      "max_dt": 0.08,
+      "max_pairs_per_cell": 40,
+      "pair_mode": "stream_per_cell",
+      "global_max_pairs": 30000,
+      "variance_retained_trace_ratio": 0.05418617739306231,
+      "num_sum_over_abs": -0.023585112002112055,
+      "dt_mean": 0.046981116743768994,
+      "dt_median": 0.04544805700061644,
+      "dt_p90": 0.07229300358267525,
+      "dt_p95": 0.07609423369759748
+    },
+    {
+      "run_name": "short_dt_k5",
+      "branch": "Alpha_branch",
+      "label": "k_auto",
+      "n_cells": 1977,
+      "n_pairs": 64358,
+      "k_auto_raw": 7,
+      "k_used": 5,
+      "pt_source": "latent_time",
+      "min_dt": 0.02,
+      "max_dt": 0.08,
+      "max_pairs_per_cell": 40,
+      "pair_mode": "stream_per_cell",
+      "global_max_pairs": 30000,
+      "variance_retained_trace_ratio": 0.031042980382114085,
+      "num_sum_over_abs": -0.01942179986164496,
+      "dt_mean": 0.04580645878139274,
+      "dt_median": 0.04351763385704038,
+      "dt_p90": 0.0717854898213324,
+      "dt_p95": 0.0758923024247848
+    }
+  ]
+}
