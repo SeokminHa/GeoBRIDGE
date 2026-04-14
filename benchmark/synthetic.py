@@ -1,11 +1,25 @@
 import argparse
 import hashlib
 import json
+import time
 from pathlib import Path
 import numpy as np
+import pandas as pd
 
 TOPOLOGIES = ("LinearChain", "Bifurcation", "Trifurcation", "ManyBifurcations")
 DRIFT_TYPES = ("none", "linear", "nonlinear", "branch_specific")
+
+# Two (drift, regime) situations per topology = 8 datasets per rep (quick GeoBRIDGE + baselines).
+TOPOLOGY_PROBE_SCENARIOS = (
+    ("LinearChain", "none", "baseline"),
+    ("LinearChain", "linear", "R3_pseudo_hubs"),
+    ("Bifurcation", "none", "baseline"),
+    ("Bifurcation", "linear", "R6_combined_real_like"),
+    ("Trifurcation", "linear", "baseline"),
+    ("Trifurcation", "branch_specific", "R4_noisy_pseudotime"),
+    ("ManyBifurcations", "linear", "baseline"),
+    ("ManyBifurcations", "nonlinear", "R6_combined_real_like"),
+)
 
 # Clip states/velocities so extreme drift + indirect coupling (Hard Mode) stay finite.
 SIM_STATE_CLIP = 8_000.0
@@ -75,6 +89,16 @@ def generate_base(
     state_noise_scale=0.10,
     init_scale=0.2,
 ):
+    """
+    Simulate baseline dynamics for one topology.
+
+    ``seed`` (typically the replicate index ``rep``) seeds the GRN and other
+    base draws. It is intentionally **not** derived from ``topology``: the same
+    integer seed yields the same random GRN parameters for every topology,
+    enabling controlled cross-topology comparisons on matched base networks
+    (recorded as ``same_rep_shared_base_grn_across_topologies`` in manifests
+    and per-dataset scenario metadata).
+    """
     rng = np.random.default_rng(seed)
     W = make_grn(n_genes, n_modules, edge_prob, weight, rng)
     global_vec = _normalize(rng.normal(size=n_genes))
@@ -189,11 +213,35 @@ def simulate_from_base(base, drift_type, drift_amp):
     order = np.argsort(time)
     return {"X": X[order], "V": V[order], "D": D[order], "time": time[order], "path": path[order], "pseudotime": time[order], "W": W}
 
+REALISM_REGIMES = (
+    "baseline",
+    "R1_weak_velocity",
+    "R2_high_overlap",
+    "R3_pseudo_hubs",
+    "R4_noisy_pseudotime",
+    "R5_nonstationary_noise",
+    "R6_combined_real_like",
+    "R7_active_tf_overlap",
+    "R8_strong_multirank_confound",
+    "R9_asymmetric_confound",
+)
+
+
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--outdir", required=True)
     p.add_argument("--topologies", nargs="+", default=list(TOPOLOGIES))
     p.add_argument("--drift-types", nargs="+", default=list(DRIFT_TYPES))
+    p.add_argument(
+        "--regimes",
+        nargs="+",
+        default=["baseline"],
+        help=(
+            f"Realism / failure-mode regimes applied after base simulation. "
+            f"Choices include: {', '.join(REALISM_REGIMES)}. "
+            "Filenames become topology__drift__repK__regime.npz (+ _scenario_meta.json)."
+        ),
+    )
     p.add_argument("--reps", type=int, default=3)
     p.add_argument("--n-genes", type=int, default=100)
     p.add_argument("--n-cells", type=int, default=1200)
@@ -205,25 +253,233 @@ def parse_args():
     p.add_argument("--drift-amp", type=float, default=10.0)
     p.add_argument("--indirect-strength", type=float, default=0.35)
     p.add_argument("--indirect-hops", type=int, default=2)
+    p.add_argument(
+        "--preset-realistic-benchmark",
+        action="store_true",
+        help=f"Shortcut: set --regimes to all non-baseline regimes ({len(REALISM_REGIMES)-1} regimes).",
+    )
+    p.add_argument(
+        "--preset-probe-topologies",
+        action="store_true",
+        help=(
+            "Generate only two (drift, regime) combos per topology (8 datasets per rep). "
+            "Ignores --topologies, --drift-types, and --regimes. Intended for fast GeoBRIDGE checks."
+        ),
+    )
     return p.parse_args()
 
 def main():
     args = parse_args()
     outdir = ensure_dir(args.outdir)
+    if args.preset_probe_topologies and args.preset_realistic_benchmark:
+        raise SystemExit("Choose only one of --preset-probe-topologies or --preset-realistic-benchmark.")
+    if args.preset_realistic_benchmark:
+        args.regimes = [r for r in REALISM_REGIMES if r != "baseline"]
+    if not args.preset_probe_topologies:
+        for r in args.regimes:
+            if r not in REALISM_REGIMES:
+                raise SystemExit(f"Unknown regime {r!r}. Choose from {REALISM_REGIMES}")
+    else:
+        for topo, drift, reg in TOPOLOGY_PROBE_SCENARIOS:
+            if topo not in TOPOLOGIES:
+                raise SystemExit(f"Invalid probe topology {topo!r}")
+            if drift not in DRIFT_TYPES:
+                raise SystemExit(f"Invalid probe drift {drift!r}")
+            if reg not in REALISM_REGIMES:
+                raise SystemExit(f"Invalid probe regime {reg!r}")
+
+    from collections import defaultdict
+
+    from . import realistic_regimes as rr
+    from . import scenario_meta as sm
+
+    if args.preset_probe_topologies:
+        by_topo: dict[str, list[tuple[str, str]]] = defaultdict(list)
+        for topo, drift, regime in TOPOLOGY_PROBE_SCENARIOS:
+            by_topo[topo].append((drift, regime))
+        n_topo = len(by_topo)
+        n_probe_scenarios = len(TOPOLOGY_PROBE_SCENARIOS)
+        total_datasets = n_probe_scenarios * args.reps
+        t_gen0 = time.perf_counter()
+        print(
+            f"[GEN] Starting synthetic generation (preset-probe-topologies) -> {outdir.resolve()} | "
+            f"topologies={n_topo} probe_scenarios={n_probe_scenarios} reps={args.reps} "
+            f"total_datasets={total_datasets}"
+        )
+    else:
+        n_topo = len(args.topologies)
+        n_drift = len(args.drift_types)
+        n_reg = len(args.regimes)
+        total_datasets = n_topo * args.reps * n_drift * n_reg
+        t_gen0 = time.perf_counter()
+        print(
+            f"[GEN] Starting synthetic generation -> {outdir.resolve()} | "
+            f"topologies={n_topo} drift_types={n_drift} regimes={n_reg} reps={args.reps} "
+            f"total_datasets={total_datasets}"
+        )
+
     manifest = []
-    for topo in args.topologies:
-        for rep in range(args.reps):
-            base = generate_base(
-                topo, rep, args.n_genes, 5, args.edge_prob, args.weight, args.decay, args.dt,
-                args.n_cells, args.velocity_noise_std, args.indirect_strength, args.indirect_hops
-            )
-            for drift in args.drift_types:
-                sim = simulate_from_base(base, drift, args.drift_amp)
-                fname = f"{topo}__{drift}__rep{rep}.npz"
-                np.savez(outdir / fname, **sim)
-                manifest.append({"file": fname, "topology": topo, "drift_type": drift, "rep": rep})
-    (outdir / "manifest.json").write_text(json.dumps(manifest, indent=2))
-    print(f"Saved synthetic datasets to {outdir}")
+    scenario_rows = []
+    regime_emit_i = 0
+
+    def emit_from_sim(topo: str, drift: str, regime: str, rep: int, sim: dict) -> None:
+        nonlocal regime_emit_i
+        regime_emit_i += 1
+        t_ds0 = time.perf_counter()
+        stem_short = f"{topo}__{drift}__rep{rep}"
+        rng = np.random.default_rng(_stable_int("regime", topo, drift, regime, str(rep)))
+        sim_r, meta = rr.apply_regime(
+            sim,
+            regime,
+            rng,
+            drift_amp_proxy=float(args.drift_amp),
+        )
+        meta["topology"] = topo
+        meta["drift_type"] = drift
+        meta["rep"] = int(rep)
+        meta["same_rep_shared_base_grn_across_topologies"] = True
+        stem = f"{topo}__{drift}__rep{rep}__{regime}"
+        fname = f"{stem}.npz"
+        path = outdir / fname
+        np.savez(path, **{k: sim_r[k] for k in sim_r if isinstance(sim_r[k], np.ndarray)})
+        sm.save_scenario_meta(path, meta)
+        manifest.append(
+            {
+                "file": fname,
+                "topology": topo,
+                "drift_type": drift,
+                "rep": rep,
+                "scenario_regime": regime,
+            }
+        )
+        scenario_rows.append({"dataset_stem": stem, **sm.meta_to_flat_row(meta)})
+        dt = time.perf_counter() - t_ds0
+        print(
+            f"[REGIME] {regime_emit_i}/{total_datasets} {stem_short} regime={regime} -> {fname} ({dt:.2f}s)"
+        )
+
+    if args.preset_probe_topologies:
+        for topo in TOPOLOGIES:
+            if topo not in by_topo:
+                continue
+            for rep in range(args.reps):
+                t_base0 = time.perf_counter()
+                base = generate_base(
+                    topo, rep, args.n_genes, 5, args.edge_prob, args.weight, args.decay, args.dt,
+                    args.n_cells, args.velocity_noise_std, args.indirect_strength, args.indirect_hops
+                )
+                print(
+                    f"[SIM] Topology={topo} rep={rep} base simulation complete "
+                    f"({time.perf_counter() - t_base0:.2f}s)"
+                )
+                for drift, regime in by_topo[topo]:
+                    sim = simulate_from_base(base, drift, args.drift_amp)
+                    emit_from_sim(topo, drift, regime, rep, sim)
+    else:
+        for topo in args.topologies:
+            for rep in range(args.reps):
+                t_base0 = time.perf_counter()
+                base = generate_base(
+                    topo, rep, args.n_genes, 5, args.edge_prob, args.weight, args.decay, args.dt,
+                    args.n_cells, args.velocity_noise_std, args.indirect_strength, args.indirect_hops
+                )
+                print(
+                    f"[SIM] Topology={topo} rep={rep} base simulation complete "
+                    f"({time.perf_counter() - t_base0:.2f}s)"
+                )
+                for drift in args.drift_types:
+                    sim = simulate_from_base(base, drift, args.drift_amp)
+                    for regime in args.regimes:
+                        emit_from_sim(topo, drift, regime, rep, sim)
+
+    generation_wall_s = time.perf_counter() - t_gen0
+    generation_config = {
+        "same_rep_shared_base_grn_across_topologies": True,
+        "same_rep_shared_base_grn_note": (
+            "Integer rep is passed as generate_base(..., seed=rep, ...); seed does not depend on "
+            "topology so the same rep index yields matched base GRN draws across topologies."
+        ),
+        "preset_probe_topologies": bool(args.preset_probe_topologies),
+        "n_topologies": n_topo,
+        "reps": int(args.reps),
+        "total_datasets_written": len(manifest),
+        "wall_seconds_total": round(generation_wall_s, 4),
+    }
+    if args.preset_probe_topologies:
+        generation_config["probe_scenarios"] = [list(t) for t in TOPOLOGY_PROBE_SCENARIOS]
+        generation_config["n_probe_scenarios"] = len(TOPOLOGY_PROBE_SCENARIOS)
+        generation_config["topologies"] = [t for t in TOPOLOGIES if t in by_topo]
+        generation_config["drift_types"] = "probe (see probe_scenarios)"
+        generation_config["regimes"] = "probe (see probe_scenarios)"
+    else:
+        generation_config["n_drift_types"] = len(args.drift_types)
+        generation_config["n_regimes"] = len(args.regimes)
+        generation_config["topologies"] = list(args.topologies)
+        generation_config["drift_types"] = list(args.drift_types)
+        generation_config["regimes"] = list(args.regimes)
+    manifest_doc = {"generation_config": generation_config, "datasets": manifest}
+    (outdir / "manifest.json").write_text(json.dumps(manifest_doc, indent=2), encoding="utf-8")
+    pd.DataFrame(scenario_rows).to_csv(outdir / "scenario_metadata.csv", index=False)
+
+    summary_lines = [
+        "Synthetic benchmark — generation summary",
+        "========================================",
+        "",
+        "These datasets feed the regime-based **realism-stress** benchmark "
+        "(`python -m benchmark.run_benchmark`), not the Fig2 **structural X→V misspecification** "
+        "track (`benchmark.fig2_benchmark_paper`). After a run, see `tables/benchmark_roles.md` under `--outdir`.",
+        "",
+        f"Output directory: {outdir.resolve()}",
+        f"Total datasets (.npz): {len(manifest)}",
+        f"Number of topologies: {n_topo}",
+    ]
+    if args.preset_probe_topologies:
+        summary_lines.append(
+            f"Mode: preset-probe-topologies ({n_probe_scenarios} drift×regime scenarios, 2 per topology)"
+        )
+    else:
+        summary_lines.extend(
+            [
+                f"Number of drift types: {len(args.drift_types)}",
+                f"Number of regimes: {len(args.regimes)}",
+            ]
+        )
+    summary_lines.extend(
+        [
+            f"Reps: {args.reps}",
+            "",
+            "Files written:",
+            "  - manifest.json (includes generation_config + datasets list)",
+            "  - scenario_metadata.csv",
+            "  - generation_summary.txt (this file)",
+            f"  - {len(manifest)} × *.npz",
+            f"  - {len(manifest)} × *_scenario_meta.json",
+            "",
+            f"same_rep_shared_base_grn_across_topologies: {generation_config['same_rep_shared_base_grn_across_topologies']}",
+            generation_config["same_rep_shared_base_grn_note"],
+            "",
+            f"Total wall time (generation): {generation_wall_s:.2f}s",
+        ]
+    )
+    summary_path = outdir / "generation_summary.txt"
+    summary_path.write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
+
+    print(f"[GEN] Wrote manifest.json, scenario_metadata.csv, {summary_path.name}")
+    if args.preset_probe_topologies:
+        print(
+            f"[GEN] Summary: datasets={len(manifest)} preset-probe-topologies "
+            f"scenarios={n_probe_scenarios} reps={args.reps} | per-dataset: *.npz + *_scenario_meta.json"
+        )
+    else:
+        print(
+            f"[GEN] Summary: datasets={len(manifest)} topologies={n_topo} "
+            f"drift_types={len(args.drift_types)} regimes={len(args.regimes)} reps={args.reps} | "
+            f"per-dataset: *.npz + *_scenario_meta.json"
+        )
+    print(
+        f"[GEN] Done. Output dir {outdir.resolve()} "
+        f"(total wall {generation_wall_s:.2f}s)"
+    )
 
 if __name__ == "__main__":
     main()

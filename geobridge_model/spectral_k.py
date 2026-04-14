@@ -1,5 +1,14 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import numpy as np
+
+@dataclass
+class BandResult:
+    """Diagnostics from band-based k selection."""
+    chosen_k: int
+    k_low: int
+    k_high: int
+    stability_curve: list = field(default_factory=list)
+    mean_score_at_k: float = 0.0
 
 @dataclass
 class SpectralResult:
@@ -51,3 +60,131 @@ def select_k_by_tail_exhaustion(
             break
     k_selected = max(1, min(k_selected, k_cap))
     return SpectralResult(k_selected, s, log_s, slope, slope_smoothed, tail_baseline, threshold, tail_start)
+
+
+def _spectral_elbow_k(S, cap=25):
+    """Elbow in log-spectrum via max distance from chord."""
+    s = S[:min(cap + 1, len(S))]
+    if len(s) < 4:
+        return max(1, len(s) - 1)
+    log_s = np.log(s + 1e-12)
+    n = len(log_s)
+    x = np.arange(n, dtype=float) / max(n - 1, 1)
+    y = (log_s - log_s[-1]) / max(log_s[0] - log_s[-1], 1e-12)
+    a = y[-1] - y[0]
+    b = -(x[-1] - x[0])
+    c = x[-1] * y[0] - x[0] * y[-1]
+    denom = np.sqrt(a**2 + b**2) + 1e-12
+    dist = np.abs(a * x + b * y + c) / denom
+    elbow = int(np.argmax(dist[2:]) + 2) + 1
+    return elbow
+
+
+def select_k_band_hybrid(
+    singular_values,
+    DXc,
+    DV,
+    U=None,
+    Vt=None,
+    floor=8,
+    cap=20,
+    stability_threshold=0.90,
+    stability_run=3,
+):
+    """
+    Band-based k selection for pair-space projection.
+
+    Identifies a robust operating region [k_low, k_high] rather than
+    estimating a precise optimum:
+      - k_low: spectral elbow (avoid under-projection)
+      - k_high: min(stability plateau, tail_exhaustion + 3, cap)
+      - chosen k: 2/3 point within band (bias toward more projection)
+
+    Parameters
+    ----------
+    singular_values : array
+        Singular values from SVD of centered pair-space DXc.
+    DXc : (n_pairs, G) array
+        Centered pairwise differences.
+    DV : (n_pairs, G) array
+        Pairwise velocity differences.
+    U, Vt : arrays, optional
+        Left/right singular vectors (recomputed if not provided).
+    floor, cap : int
+        Hard bounds on k.
+    stability_threshold : float
+        Overlap threshold for stability plateau detection.
+    stability_run : int
+        Consecutive stable increments required.
+
+    Returns
+    -------
+    BandResult with chosen_k, k_low, k_high, stability_curve.
+    """
+    from geobridge_model.scoring import dual_project_pairspace, score_matrix
+
+    S = np.asarray(singular_values, dtype=float)
+    if U is None or Vt is None:
+        U, S, Vt = np.linalg.svd(DXc, full_matrices=False)
+
+    G = DXc.shape[1]
+    max_k = min(cap + 5, len(S) - 1)
+
+    # Step 1: spectral elbow -> lower bound
+    elbow_k = _spectral_elbow_k(S, cap=max_k)
+
+    # Step 2: stability plateau -> upper bound signal
+    topn = min(100, G * (G - 1))
+    prev_order = None
+    overlaps = []
+    stable_count = 0
+    plateau_k = max_k
+
+    for k in range(1, max_k + 1):
+        DXr, DVr = dual_project_pairspace(DXc, DV, U, S, Vt, k)
+        sc = score_matrix(DXr, DVr, normalize=True)
+        flat = np.abs(sc[~np.eye(G, dtype=bool)])
+        order = np.argsort(-flat)[:topn]
+
+        if prev_order is not None:
+            overlap = len(set(prev_order.tolist()) & set(order.tolist())) / topn
+            overlaps.append(overlap)
+            if overlap >= stability_threshold:
+                stable_count += 1
+            else:
+                stable_count = 0
+            if stable_count >= stability_run and plateau_k == max_k:
+                plateau_k = k - stability_run + 1
+        else:
+            overlaps.append(float('nan'))
+        prev_order = order
+
+    # Step 2b: tail exhaustion -> additional upper bound
+    spec = select_k_by_tail_exhaustion(S)
+    tail_k = spec.k_selected
+
+    # Step 3: form band
+    k_low = max(floor, elbow_k)
+    k_high = min(cap, plateau_k, tail_k + 3)
+
+    if k_low > k_high:
+        k_low = max(floor, min(elbow_k, plateau_k, tail_k + 3))
+        k_high = min(cap, max(elbow_k, plateau_k))
+
+    # Step 4: pick 2/3 point within band
+    band_width = k_high - k_low
+    chosen_k = k_low + int(round(band_width * 0.67))
+    chosen_k = max(k_low, min(chosen_k, k_high, len(S) - 1))
+
+    # Compute mean |score| at chosen k for diagnostics
+    DXr, DVr = dual_project_pairspace(DXc, DV, U, S, Vt, chosen_k)
+    sc = score_matrix(DXr, DVr, normalize=True)
+    ms = float(np.mean(np.abs(sc[~np.eye(G, dtype=bool)])))
+
+    return BandResult(
+        chosen_k=chosen_k,
+        k_low=k_low,
+        k_high=k_high,
+        stability_curve=overlaps,
+        mean_score_at_k=ms,
+    )

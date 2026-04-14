@@ -60,6 +60,7 @@ class GeoBridgeModel:
         max_pairs_per_cell=None,
         pair_seed=None,
         stream_num_threads=None,
+        pair_normalize=None,
     ):
         """
         Exact streaming alternative to materializing ΔX/ΔV and doing SVD on (n_pairs x G).
@@ -81,6 +82,7 @@ class GeoBridgeModel:
             max_pairs_per_cell=max_pairs_per_cell,
             pair_seed=pair_seed,
             num_threads=stream_num_threads,
+            pair_normalize=pair_normalize,
         )
 
         if n_pairs <= 0:

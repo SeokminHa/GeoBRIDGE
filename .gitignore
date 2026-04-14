@@ -19,6 +19,8 @@ Thumbs.db
 *.h5ad
 data/
 */cache/
+# Synthetic benchmark: GeoBridge streaming pairspace cache (can be large)
+**/.pairspace_cache/
 # Optional: omit large regenerated artifacts (uncomment if you do not want them in git)
 # generated/
 # results/

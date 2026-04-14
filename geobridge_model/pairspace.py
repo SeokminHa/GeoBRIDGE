@@ -22,6 +22,19 @@ class PairData:
     pair_j: np.ndarray
 
 
+def _maybe_pair_normalize_rows(dx, dv, pair_normalize):
+    """Scale each pair row so ‖ΔX‖=1 (ΔV scaled the same). ``pair_normalize`` None = no-op."""
+    if pair_normalize is None:
+        return dx, dv
+    pn = str(pair_normalize).strip().lower()
+    if pn in ("", "none"):
+        return dx, dv
+    if pn == "l2":
+        nrm = np.linalg.norm(dx, axis=1, keepdims=True) + 1e-12
+        return dx / nrm, dv / nrm
+    raise ValueError(f"pair_normalize must be None, 'none', or 'l2'; got {pair_normalize!r}")
+
+
 def monotonic_forward_windows(pseudotime, min_forward_dt, max_forward_dt):
     """
     For non-decreasing pseudotime, return (start, end) such that valid j for source i are
@@ -50,6 +63,7 @@ def _accumulate_monotone_range(
     end,
     max_pairs_per_cell,
     pair_seed,
+    pair_normalize=None,
 ):
     """Accumulate sufficient statistics for i in [i_begin, i_end) (half-open)."""
     n = int(X.shape[0])
@@ -73,6 +87,7 @@ def _accumulate_monotone_range(
             js = rng.choice(js, size=cap, replace=False)
         dx = X[js] - X[i]
         dv = V[js] - V[i]
+        dx, dv = _maybe_pair_normalize_rows(dx, dv, pair_normalize)
         m = int(dx.shape[0])
         if m <= 0:
             continue
@@ -94,6 +109,7 @@ def accumulate_streaming_pairspace_stats(
     max_pairs_per_cell=None,
     pair_seed=None,
     num_threads=None,
+    pair_normalize=None,
 ):
     """
     Sum ΔX/ΔV moments over forward pairs (same statistics as materialized pair matrices).
@@ -104,6 +120,9 @@ def accumulate_streaming_pairspace_stats(
 
     num_threads: None = auto worker count; 1 = single-threaded; >1 = cap workers.
     Env GEOBRIDGE_STREAM_THREADS overrides when num_threads is None (same semantics).
+
+    pair_normalize: None / \"none\" = raw pair deltas; \"l2\" = row-wise ‖ΔX‖ normalization
+    (ΔV scaled by the same factor per pair).
     """
     X = np.ascontiguousarray(X, dtype=np.float64)
     V = np.ascontiguousarray(V, dtype=np.float64)
@@ -141,7 +160,15 @@ def accumulate_streaming_pairspace_stats(
                 nw = max(1, min(int(num_threads), n - 1))
             if nw <= 1:
                 return _accumulate_monotone_range(
-                    0, n - 1, X, V, start, end, max_pairs_per_cell, pair_seed
+                    0,
+                    n - 1,
+                    X,
+                    V,
+                    start,
+                    end,
+                    max_pairs_per_cell,
+                    pair_seed,
+                    pair_normalize,
                 )
             edges = np.linspace(0, n - 1, nw + 1, dtype=np.int64)
             chunks = [(int(edges[w]), int(edges[w + 1])) for w in range(nw)]
@@ -149,7 +176,7 @@ def accumulate_streaming_pairspace_stats(
             def _run_chunk(ab):
                 a, b = ab
                 return _accumulate_monotone_range(
-                    a, b, X, V, start, end, max_pairs_per_cell, pair_seed
+                    a, b, X, V, start, end, max_pairs_per_cell, pair_seed, pair_normalize
                 )
 
             # Avoid oversubscription: each chunk uses BLAS GEMM; cap BLAS threads per worker.
@@ -171,7 +198,7 @@ def accumulate_streaming_pairspace_stats(
                 n_pairs += p[5]
             return sum_dx, sum_dv, sum_dx_dx, sum_dx_dv, sum_dv_dv, n_pairs
         return _accumulate_monotone_range(
-            0, n - 1, X, V, start, end, max_pairs_per_cell, pair_seed
+            0, n - 1, X, V, start, end, max_pairs_per_cell, pair_seed, pair_normalize
         )
 
     # Non-monotonic: same logic as iter_forward_pair_blocks fallback
@@ -194,6 +221,7 @@ def accumulate_streaming_pairspace_stats(
             js = rng.choice(js, size=cap, replace=False)
         dx = X[js] - X[i]
         dv = V[js] - V[i]
+        dx, dv = _maybe_pair_normalize_rows(dx, dv, pair_normalize)
         m = int(dx.shape[0])
         if m <= 0:
             continue

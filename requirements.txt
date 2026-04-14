@@ -14,5 +14,8 @@ scanpy>=1.9
 scvelo>=0.2
 networkx>=3.0
 
+# TF-target ground truth (bone marrow validation)
+decoupler>=1.4
+
 # Optional: Enrichr / GO in pancreas_fig3
 gseapy>=1.0

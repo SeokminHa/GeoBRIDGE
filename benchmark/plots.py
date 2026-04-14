@@ -1,7 +1,17 @@
+"""
+Plot helpers for benchmarks.
+
+Regime × method heatmaps and related figures summarize the **realism-stress** synthetic benchmark
+(``benchmark.run_benchmark`` on regime-tagged ``.npz`` from ``benchmark.synthetic``): controlled
+failure modes and deconfounding stress, not a claim of faithful biological realism.
+"""
+
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.ma as ma
+from matplotlib import colormaps
 from matplotlib.patches import Patch
 
 # Fig2 bar chart: method colors (match paper-style legend)
@@ -122,6 +132,7 @@ def save_fig2_bar_plots(df, outdir, topology_order=None, method_order=None, file
 
 
 def save_main_benchmark_plots(df, outdir):
+    """Bar summaries for the realism-stress regime benchmark (mean metric by topology × model)."""
     outdir = ensure_dir(outdir)
     for metric in ["S-AUPRC", "AUPRC", "EDP@50", "AUROC"]:
         plt.figure(figsize=(10,5))
@@ -135,7 +146,7 @@ def save_main_benchmark_plots(df, outdir):
             plt.bar(x + i*width, sub[metric].values, width=width, label=model)
         plt.xticks(x + width*(len(models)-1)/2, topologies, rotation=20)
         plt.ylabel(metric)
-        plt.title(f"Main benchmark: mean {metric}")
+        plt.title(f"Realism-stress benchmark: mean {metric}")
         plt.legend(frameon=False, fontsize=8)
         plt.tight_layout()
         plt.savefig(outdir / f"main_benchmark_{metric}.png", dpi=160)
@@ -235,3 +246,98 @@ def save_spectrum_plots(df, outdir):
         plt.tight_layout()
         plt.savefig(outdir / f"spectrum_{topology}_{drift_type}.png", dpi=160)
         plt.close()
+
+
+def _regime_heatmap_title_suffix(metric: str) -> str:
+    higher = ("AUPRC", "target_precision_at_20", "signal_preservation_corr")
+    lower = ("pseudo_hub_fdr_at_20", "residual_confound_r2")
+    if metric in higher:
+        return " (higher better)"
+    if metric in lower:
+        return " (lower better)"
+    return ""
+
+
+def save_regime_realism_heatmaps(df, outdir):
+    """
+    Realism-stress benchmark: mean metric over reps, scenario_regime × model.
+
+    Missing combinations become NaN in the pivot; those cells use the colormap's "bad" color
+    (light gray) instead of blending into viridis.
+    """
+    outdir = ensure_dir(outdir)
+    if "scenario_regime" not in df.columns:
+        return
+    metrics = [
+        "AUPRC",
+        "pseudo_hub_fdr_at_20",
+        "target_precision_at_20",
+        "signal_preservation_corr",
+        "residual_confound_r2",
+    ]
+    cmap = colormaps["viridis"].copy()
+    cmap.set_bad(color="#d9d9d9")
+    for metric in metrics:
+        if metric not in df.columns:
+            continue
+        sub = df.groupby(["scenario_regime", "model"], as_index=False)[metric].mean()
+        pivot = sub.pivot(index="scenario_regime", columns="model", values=metric)
+        if pivot.size == 0:
+            continue
+        vals = pivot.values.astype(float)
+        masked = ma.masked_invalid(vals)
+        valid = vals[np.isfinite(vals)]
+        if valid.size == 0:
+            vmin, vmax = 0.0, 1.0
+        elif np.allclose(valid.min(), valid.max()):
+            c = float(valid.min())
+            vmin, vmax = c - 0.05, c + 0.05
+        else:
+            vmin, vmax = float(valid.min()), float(valid.max())
+        fig, ax = plt.subplots(figsize=(max(8, 1.2 * pivot.shape[1]), max(3.5, 0.45 * pivot.shape[0])))
+        im = ax.imshow(masked, aspect="auto", cmap=cmap, vmin=vmin, vmax=vmax)
+        ax.set_xticks(range(len(pivot.columns)))
+        ax.set_xticklabels(list(pivot.columns), rotation=35, ha="right", fontsize=8)
+        ax.set_yticks(range(len(pivot.index)))
+        ax.set_yticklabels(list(pivot.index), fontsize=8)
+        suf = _regime_heatmap_title_suffix(metric)
+        ax.set_title(f"Mean {metric}: scenario_regime × model{suf}")
+        fig.colorbar(im, ax=ax, fraction=0.035, pad=0.02)
+        fig.tight_layout()
+        safe = metric.replace("@", "_at_").replace(" ", "_")
+        fig.savefig(outdir / f"heatmap_regime_method__{safe}.png", dpi=170, bbox_inches="tight")
+        plt.close(fig)
+
+
+def save_realism_summary_plots(df, outdir):
+    """
+    Realism-stress benchmark: mean AUPRC vs scenario_regime, one curve per model
+    (aggregated over topologies / drifts / reps).
+    """
+    outdir = ensure_dir(outdir)
+    if "scenario_regime" not in df.columns or "AUPRC" not in df.columns:
+        return
+    g = df.groupby(["scenario_regime", "model"], as_index=False)["AUPRC"].mean()
+    regimes = sorted(g["scenario_regime"].unique())
+    if len(regimes) <= 1:
+        return
+    x = np.arange(len(regimes))
+    models = list(g["model"].unique())
+    fig, ax = plt.subplots(figsize=(max(7, 0.55 * len(regimes)), 4.5))
+    for m in models:
+        ys = [
+            float(g[(g["scenario_regime"] == r) & (g["model"] == m)]["AUPRC"].iloc[0])
+            if len(g[(g["scenario_regime"] == r) & (g["model"] == m)])
+            else float("nan")
+            for r in regimes
+        ]
+        ax.plot(x, ys, marker="o", label=m, lw=1.4)
+    ax.set_xticks(x)
+    ax.set_xticklabels(regimes, rotation=25, ha="right", fontsize=8)
+    ax.set_ylabel("Mean AUPRC")
+    ax.set_title("AUPRC vs realism regime (mean over topology × drift × rep)")
+    ax.legend(frameon=False, fontsize=7, ncol=2)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(outdir / "realism_stratified_auprc_by_regime.png", dpi=170, bbox_inches="tight")
+    plt.close(fig)
