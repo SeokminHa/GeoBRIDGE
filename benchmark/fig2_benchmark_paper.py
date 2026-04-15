@@ -1,14 +1,17 @@
 """
-Fig2-style metrics on the same synthetic topologies as benchmark/run_benchmark.py.
+Fig2-style metrics on the same synthetic topologies as ``benchmark/run_benchmark.py``, but with a
+**different purpose** than the regime-based realism-stress benchmark.
 
-**Hard Mode (default, ``--hard-mode``):** **structural** misspecification for global linear **X→V**
-(Ridge): **state-dependent** direct edges (branch / early–late masks), **X–V drift mismatch**, and
-**asymmetric latent** programs (**V** ≫ **X** loadings). Physics use **moderate** velocity noise and
+**Hard Mode (default, ``--hard-mode``):** a **structural stress test** aimed at breaking **pooled
+global linear X→V** summaries (e.g. Ridge): **state-dependent** direct edges (branch / early–late
+masks), **X–V drift mismatch**, and **asymmetric latent** programs (**V** ≫ **X** loadings). This is
+**not** framed as a faithful biological realism benchmark—it engineers misspecification so local
+pair-based structure can still be informative. Physics use **moderate** velocity noise and
 **standard-ish** indirect strength—not extreme SNR or indirect-as-crutch. **Narrow** pseudotime pair
-gaps (~0.04–0.18) keep local pairs in comparable regimes so **GeoBRIDGE** and pairwise scores can track
-local Jacobian structure. Gene-scale and library factors stay **off** by default (CLI-ablatable).
+gaps (~0.04–0.18) keep local pairs in comparable regimes so **GeoBRIDGE** and pairwise scores can
+track local Jacobian structure. Gene-scale and library factors stay **off** by default (CLI-ablatable).
 
-**Baseline (``--no-hard-mode``):** milder settings aligned with the main benchmark .npz recipe
+**Baseline (``--no-hard-mode``):** milder settings aligned with the main synthetic .npz recipe
 (100 genes, 5% edges, drift amp 10, indirect 0.35, ``branch_specific`` drift); realism toggles
 default off; pair gap defaults to the older wide window (0.1–0.8).
 

@@ -379,10 +379,10 @@ def main():
         "mean_auprc_std": "mean",
         "tf": "count",
     }).rename(columns={"tf": "n_tfs"})
-    print(f"\n  {'Bin':<8s}  {'n_TFs':>5s}  {'mean_auprc_bootstrap_std':>25s}")
+    print(f"\n  {'Bin':<8s}  {'n_TFs':>5s}  {'mean_auprc_std':>25s}")
     print("  " + "-" * 38)
     for idx, r in smooth_stats.iterrows():
-        print(f"  {idx:<8s}  {r['n_tfs']:5.0f}  {r['mean_auprc_bootstrap_std']:25.6f}")
+        print(f"  {idx:<8s}  {r['n_tfs']:5.0f}  {r['mean_auprc_std']:25.6f}")
 
     # ===================================================================
     # Null hypothesis test: global k adequacy

@@ -2,11 +2,13 @@
 Modular Fig2-only simulation extensions (latent drift, X/V mismatch, state-dependent edges,
 gene-scale heterogeneity, library-size factors). Each feature is optional and CLI-ablatable.
 
-**Design intent (hard preset):** pooled linear **X→V** is misspecified when (i) effective **W** varies
-with pseudotime/branch, (ii) **V** sees a different drift path than **X**, and (iii) a shared latent
-**U** couples to **X** and **V** through **different** loadings with **larger** amplitude in **V**.
-Local forward pairs with **small** Δ(pseudotime) then see an approximately **constant** regime mask
-and similar **U**, so pairwise **ΔX, ΔV** can still align with local direct structure.
+**Design intent (hard preset):** this stack supports a **structural stress test** for methods that
+assume a **pooled global linear X→V** map—not a claim of biological realism. Pooled linear **X→V**
+is intentionally **misspecified** when (i) effective **W** varies with pseudotime/branch, (ii) **V**
+sees a different drift path than **X**, and (iii) a shared latent **U** couples to **X** and **V**
+through **different** loadings with **larger** amplitude in **V**. Local forward pairs with **small**
+Δ(pseudotime) then see an approximately **constant** regime mask and similar **U**, so pairwise
+**ΔX, ΔV** can still align with local direct structure.
 
 Evaluation uses the full structural **W** (union of direct edges). Dynamics use **masked** ``Wm`` for
 the direct term only; see ``edge_regime`` / ``branch_id`` for metadata (-1 = globally active).
@@ -50,6 +52,12 @@ class Fig2RealismKnobs:
     lib_size_noise: bool = False
     lib_size_sigma: float = 0.15
     lib_size_apply_to_v: bool = False
+    # Nonlinear regulation: applied to direct_reg = f(x[t]) @ W instead of x[t] @ W
+    # "linear" (default), "saturation", "threshold", "mild_nonlinear"
+    regulation_nonlinearity: str = "linear"
+    regulation_K: float = 5.0       # saturation half-max (Michaelis-Menten K)
+    regulation_threshold: float = 0.3  # threshold center for switch-like
+    regulation_steepness: float = 2.0  # Hill coefficient for threshold
 
     def any_enabled(self) -> bool:
         return bool(
@@ -58,7 +66,42 @@ class Fig2RealismKnobs:
             or self.state_dependent_edges
             or self.gene_scale_heterogeneity
             or self.lib_size_noise
+            or self.regulation_nonlinearity != "linear"
         )
+
+
+def _apply_regulation_nonlinearity(x: np.ndarray, knobs: Fig2RealismKnobs) -> np.ndarray:
+    """Apply nonlinear transform to state vector before regulation matrix multiply.
+
+    Given state x, returns f(x) such that direct_reg = f(x) @ W.
+
+    Modes:
+      - "linear": f(x) = x  (identity, default)
+      - "saturation": f(x) = x * K / (K + |x|)  (Michaelis-Menten-like)
+        Linear near zero (f'(0)=1), saturates for |x|>>K.
+        At |x|=K, effect is x/2.  Preserves sign.
+      - "threshold": f(x) = x * sigmoid(steepness * (|x| - threshold))
+        Switch-like: weak below threshold, full above. Preserves sign.
+      - "mild_nonlinear": f(x) = sign(x) * |x|^0.85
+        Sublinear power law. Compresses large values mildly.
+    """
+    mode = knobs.regulation_nonlinearity
+    if mode == "linear":
+        return x
+    ax = np.abs(x)
+    if mode == "saturation":
+        K = knobs.regulation_K
+        scale = K / (K + ax)  # 1 at x=0, approaches 0 for |x|>>K => f(x)~K*sign(x)
+        return x * scale
+    elif mode == "threshold":
+        thr = knobs.regulation_threshold
+        steep = knobs.regulation_steepness
+        gate = 1.0 / (1.0 + np.exp(-steep * (ax - thr)))
+        return x * gate
+    elif mode == "mild_nonlinear":
+        return np.sign(x) * np.power(ax + 1e-12, 0.85)
+    else:
+        raise ValueError(f"Unknown regulation nonlinearity: {mode}")
 
 
 def _drift_vector(
@@ -100,10 +143,33 @@ def _drift_vector_v(
     dx = _drift_vector(drift_type, drift_amp, alpha, branch_name, base)
     if not knobs.xv_drift_mismatch or knobs.xv_mismatch_strength <= 0:
         return dx
-    a2 = float(np.clip(alpha + knobs.xv_phase_shift, 0.0, 1.0))
-    dv = _drift_vector(drift_type, drift_amp, a2, branch_name, base)
+    # Original implementation phase-shifted alpha, but for linear drift types
+    # (branch_specific: drift = amp * alpha * constant_direction), this only
+    # changes magnitude, not direction. Phase-shifted drift is perfectly
+    # collinear with original drift, so blending has zero directional effect.
+    #
+    # Fix: add a stable orthogonal mismatch direction that creates genuine
+    # directional divergence between X and V drift.  The mismatch direction
+    # is seeded from the branch name + xv_phase_shift for reproducibility.
     m = float(np.clip(knobs.xv_mismatch_strength, 0.0, 1.0))
-    return (1.0 - m) * dx + m * dv
+    G = len(dx)
+    # Generate stable mismatch direction from branch name
+    seed_str = f"xv_mismatch|{branch_name}|{knobs.xv_phase_shift}"
+    seed_int = int(hashlib.sha256(seed_str.encode()).hexdigest()[:8], 16)
+    rng = np.random.default_rng(seed_int)
+    raw_dir = rng.standard_normal(G)
+    # Orthogonalize against dx to get a pure directional mismatch
+    dx_norm = np.linalg.norm(dx)
+    if dx_norm > 1e-12:
+        proj = np.dot(raw_dir, dx) / (dx_norm ** 2) * dx
+        orth = raw_dir - proj
+    else:
+        orth = raw_dir
+    orth_norm = np.linalg.norm(orth)
+    if orth_norm > 1e-12:
+        orth = orth / orth_norm * dx_norm  # scale to same magnitude as dx
+    # Blend: at m=0 pure dx, at m=0.5 equal mix of dx and orthogonal
+    return (1.0 - m) * dx + m * orth
 
 
 def _latent_U(alpha: float, branch_name: str, rank: int, phase0: float, trial_seed: int) -> np.ndarray:
@@ -245,10 +311,11 @@ def simulate_fig2_rich_trajectory(
             else:
                 Wm = W
 
-            direct_reg = x[t] @ Wm
+            x_eff = _apply_regulation_nonlinearity(x[t], knobs)
+            direct_reg = x_eff @ Wm
             indirect_reg = np.zeros_like(direct_reg)
             for op in indirect_ops:
-                indirect_reg += x[t] @ op
+                indirect_reg += x_eff @ op
             reg_for_state = direct_reg - decay * x[t]
 
             x[t + 1] = x[t] + dt * (reg_for_state + drift_x) + branch_bias + state_noise[t]
@@ -278,10 +345,11 @@ def simulate_fig2_rich_trajectory(
             Wm = W * M
         else:
             Wm = W
-        direct_last = x[-1] @ Wm
+        x_eff_last = _apply_regulation_nonlinearity(x[-1], knobs)
+        direct_last = x_eff_last @ Wm
         indirect_last = np.zeros_like(direct_last)
         for op in indirect_ops:
-            indirect_last += x[-1] @ op
+            indirect_last += x_eff_last @ op
         v[-1] = direct_last + indirect_strength * indirect_last + drift_v_last - decay * x[-1] + vel_noise[-1]
         if knobs.latent_drift:
             u = _latent_U(al, name, rank, phase0, trial_seed)
