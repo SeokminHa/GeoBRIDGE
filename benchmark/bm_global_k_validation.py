@@ -345,7 +345,7 @@ def main():
             n_pos = (auroc_deltas > 0).sum()
             n_neg = (auroc_deltas < 0).sum()
             n_test = n_pos + n_neg
-            sign_p = sp_stats.binom_test(n_pos, n_test, 0.5) if n_test > 0 else 1.0
+            sign_p = sp_stats.binomtest(n_pos, n_test, 0.5).pvalue if n_test > 0 else 1.0
 
             # Wilcoxon signed-rank for d improvement
             d_deltas = (merged["d_k"] - merged["d_0"]).values
