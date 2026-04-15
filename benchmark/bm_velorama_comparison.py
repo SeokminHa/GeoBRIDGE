@@ -230,19 +230,24 @@ def run_geobridge(data_dir, outdir):
 # =====================================================================
 
 def _find_velorama_tsv(ds_name, dynamics, search_dirs):
-    """Search for Velorama output TSV across multiple directories and names."""
-    name_patterns = [
-        f"{ds_name}.{dynamics}.velorama.interactions.tsv",
-        f"velorama_run.{dynamics}.velorama.interactions.tsv",
-    ]
+    """Search for Velorama output TSV across multiple directories and names.
+
+    Prefers per-dataset files ({ds_name}.*) over the generic fallback
+    (velorama_run.*), which may be stale from a previous run where all
+    datasets overwrote the same file (only the last dataset survives).
+    """
+    # Per-dataset name first (preferred)
     for d in search_dirs:
         d = Path(d)
-        if not d.exists():
-            continue
-        for pat in name_patterns:
-            f = d / pat
-            if f.exists():
-                return f
+        f = d / f"{ds_name}.{dynamics}.velorama.interactions.tsv"
+        if f.exists():
+            return f
+    # Fallback: generic name (WARNING: may be from a different dataset)
+    for d in search_dirs:
+        d = Path(d)
+        f = d / f"velorama_run.{dynamics}.velorama.interactions.tsv"
+        if f.exists():
+            return f
     return None
 
 
@@ -356,9 +361,12 @@ def run_velorama(data_dir, outdir, device="cuda"):
             print(f"  Loading {result_file}")
             # Load interaction matrix: rows=targets, cols=regulators
             interaction_df = pd.read_csv(result_file, sep='\t', index_col=0)
+            # Ensure index/columns are strings (pandas may parse "0","1" as int)
+            interaction_df.index = interaction_df.index.astype(str)
+            interaction_df.columns = interaction_df.columns.astype(str)
             print(f"  {ds_name}/{dynamics}: {interaction_df.shape} (targets x regs)")
 
-            # Gene names in Velorama output are string versions of 0-99
+            # Gene names are "0" through "99"
             scores = []
             labels = []
             for tgt_idx in range(n_genes):
