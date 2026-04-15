@@ -229,13 +229,45 @@ def run_geobridge(data_dir, outdir):
 # Phase 2: Velorama
 # =====================================================================
 
+def _find_velorama_tsv(ds_name, dynamics, search_dirs):
+    """Search for Velorama output TSV across multiple directories and names."""
+    name_patterns = [
+        f"{ds_name}.{dynamics}.velorama.interactions.tsv",
+        f"velorama_run.{dynamics}.velorama.interactions.tsv",
+    ]
+    for d in search_dirs:
+        d = Path(d)
+        if not d.exists():
+            continue
+        for pat in name_patterns:
+            f = d / pat
+            if f.exists():
+                return f
+    return None
+
+
 def run_velorama(data_dir, outdir, device="cuda"):
-    """Run Velorama on all datasets via CLI, then evaluate against GT."""
+    """Run Velorama on all datasets via CLI, then evaluate against GT.
+
+    Velorama CLI saves output as:
+      {save_dir}/{name}.{dynamics}.velorama.interactions.tsv
+    We use -n {ds_name} so each dataset gets a unique file.
+    -rd (root_dir) = directory containing {ds_name}.h5ad
+    -sd (save_dir) = directory where output TSVs go (MUST differ from root_dir
+                     because Velorama also uses os.path.join(root_dir, save_dir)
+                     for Ray Tune local_dir).
+    """
     import shutil
     csvdir = Path(outdir) / "csv"
     csvdir.mkdir(parents=True, exist_ok=True)
-    velorama_outdir = Path(outdir) / "velorama_outputs"
-    velorama_outdir.mkdir(parents=True, exist_ok=True)
+
+    # Velorama's root_dir: where the h5ad files live
+    velorama_rootdir = Path(outdir) / "velorama_data"
+    velorama_rootdir.mkdir(parents=True, exist_ok=True)
+
+    # Velorama's save_dir: where output TSVs + checkpoints go
+    velorama_savedir = Path(outdir) / "velorama_results"
+    velorama_savedir.mkdir(parents=True, exist_ok=True)
 
     # ---- Step 1: Run Velorama CLI on each dataset ----
     for ds_name in DATASETS:
@@ -248,18 +280,20 @@ def run_velorama(data_dir, outdir, device="cuda"):
         print(f"Velorama on {ds_name}")
         print(f"{'='*70}")
 
-        # Velorama CLI expects h5ad in root_dir
-        dst = velorama_outdir / f"{ds_name}.h5ad"
+        # Copy h5ad to Velorama root_dir
+        dst = velorama_rootdir / f"{ds_name}.h5ad"
         if not dst.exists():
             shutil.copy2(fpath, dst)
 
         for dynamics in ["pseudotime", "rna_velocity"]:
-            # Velorama saves output as: {name}.{dynamics}.velorama.interactions.tsv
-            # where name = -n arg (default: 'velorama_run'), but we use ds_name
-            result_file = (velorama_outdir /
-                           f"{ds_name}.{dynamics}.velorama.interactions.tsv")
-            if result_file.exists():
-                print(f"  [SKIP] {ds_name}/{dynamics} already computed")
+            # Check if already computed (search multiple locations)
+            existing = _find_velorama_tsv(
+                ds_name, dynamics,
+                [velorama_savedir, Path(outdir) / "velorama_outputs",
+                 Path("results")]
+            )
+            if existing is not None:
+                print(f"  [SKIP] {ds_name}/{dynamics} found at {existing}")
                 continue
 
             cmd = [
@@ -270,8 +304,8 @@ def run_velorama(data_dir, outdir, device="cuda"):
                 "-dev", device,
                 "-l", "5",
                 "-hd", "32",
-                "-rd", str(velorama_outdir),
-                "-sd", str(velorama_outdir),
+                "-rd", str(velorama_rootdir),
+                "-sd", str(velorama_savedir),
             ]
             print(f"  Running: {' '.join(cmd)}")
             t0 = time.perf_counter()
@@ -303,28 +337,23 @@ def run_velorama(data_dir, outdir, device="cuda"):
 
     from sklearn.metrics import average_precision_score, roc_auc_score
 
+    # Search all likely directories for Velorama output
+    search_dirs = [
+        velorama_savedir,
+        Path(outdir) / "velorama_outputs",
+        Path("results"),   # Velorama default save_dir
+    ]
+
     results = []
     for ds_name in DATASETS:
         for dynamics in ["pseudotime", "rna_velocity"]:
-            # Check multiple possible output filenames
-            candidates = [
-                velorama_outdir / f"{ds_name}.{dynamics}.velorama.interactions.tsv",
-                velorama_outdir / f"velorama_run.{dynamics}.velorama.interactions.tsv",
-            ]
-            result_file = None
-            for c in candidates:
-                if c.exists():
-                    result_file = c
-                    break
+            result_file = _find_velorama_tsv(ds_name, dynamics, search_dirs)
 
             if result_file is None:
                 print(f"  [SKIP] No Velorama output for {ds_name}/{dynamics}")
-                # List what IS in the output dir
-                tsv_files = list(velorama_outdir.glob("*.tsv"))
-                if tsv_files:
-                    print(f"    Available TSVs: {[f.name for f in tsv_files]}")
                 continue
 
+            print(f"  Loading {result_file}")
             # Load interaction matrix: rows=targets, cols=regulators
             interaction_df = pd.read_csv(result_file, sep='\t', index_col=0)
             print(f"  {ds_name}/{dynamics}: {interaction_df.shape} (targets x regs)")
@@ -394,12 +423,15 @@ def compare_results(outdir):
     if not gb_path.exists():
         print(f"  [ERROR] {gb_path} not found. Run --phase geobridge first.")
         return
-    if not vr_path.exists():
-        print(f"  [ERROR] {vr_path} not found. Run --phase velorama first.")
-        return
 
     gb_df = pd.read_csv(gb_path)
-    vr_df = pd.read_csv(vr_path)
+
+    # Velorama results may be empty or missing
+    if vr_path.exists() and vr_path.stat().st_size > 10:
+        vr_df = pd.read_csv(vr_path)
+    else:
+        print(f"  [WARN] No Velorama results yet. Showing GeoBRIDGE only.")
+        vr_df = pd.DataFrame(columns=gb_df.columns)
 
     print(f"\n{'='*70}")
     print(f"COMPARISON: GeoBRIDGE vs Velorama")
