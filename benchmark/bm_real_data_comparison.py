@@ -85,17 +85,26 @@ def _load_collectri_regulons(organism="human"):
     return None
 
 
-def _build_ground_truth(net, gene_names, min_targets=MIN_TARGETS_PER_TF):
+def _build_ground_truth(net, gene_names, min_targets=MIN_TARGETS_PER_TF,
+                        uppercase_match=False):
     """
     Build ground truth from regulon network.
 
-    Returns:
-      tf_list: list of TF names with >= min_targets in gene_names
-      gt_dict: {tf: set(target_genes)} for evaluation
-    """
-    gene_set = set(gene_names)
+    If uppercase_match=True, upper-cases gene_names for matching against a
+    human-style regulon network (useful when dataset is mouse but only human
+    CollecTRI is available: mouse 'Ins1' -> 'INS1' ~ human).
 
-    # Filter to genes in our dataset
+    Returns:
+      gt_dict: {tf: set(target_genes_in_original_case)}
+    """
+    if uppercase_match:
+        name_upper_to_orig = {g.upper(): g for g in gene_names}
+        gene_set = set(name_upper_to_orig.keys())
+    else:
+        gene_set = set(gene_names)
+        name_upper_to_orig = {g: g for g in gene_names}
+
+    # Filter to genes in our dataset (after case-matching)
     net_filtered = net[
         net["source"].isin(gene_set) & net["target"].isin(gene_set)
     ].copy()
@@ -104,14 +113,18 @@ def _build_ground_truth(net, gene_names, min_targets=MIN_TARGETS_PER_TF):
     tf_counts = net_filtered.groupby("source")["target"].nunique()
     valid_tfs = tf_counts[tf_counts >= min_targets].index.tolist()
 
+    # Map back to original-case names
     gt_dict = {}
     for tf in valid_tfs:
-        targets = set(net_filtered[net_filtered["source"] == tf]["target"].unique())
-        targets.discard(tf)  # no self-loops
-        if len(targets) >= min_targets:
-            gt_dict[tf] = targets
+        tf_orig = name_upper_to_orig[tf]
+        targets_net = set(net_filtered[net_filtered["source"] == tf]["target"].unique())
+        targets_orig = {name_upper_to_orig[t] for t in targets_net if t in name_upper_to_orig}
+        targets_orig.discard(tf_orig)  # no self-loops
+        if len(targets_orig) >= min_targets:
+            gt_dict[tf_orig] = targets_orig
 
-    print(f"  GT: {len(gt_dict)} TFs with >= {min_targets} targets")
+    print(f"  GT: {len(gt_dict)} TFs with >= {min_targets} targets"
+          f"{' (uppercase match)' if uppercase_match else ''}")
     return gt_dict
 
 
@@ -361,7 +374,10 @@ def phase_geobridge():
         if net is None:
             print(f"  [ERROR] Cannot load CollecTRI for {organism}. Skipping.")
             continue
-        gt_dict = _build_ground_truth(net, gene_names)
+        # If the organism we wanted wasn't the one we got (mouse->human fallback),
+        # uppercase mouse gene names to match human CollecTRI.
+        uppercase = (organism == "mouse")
+        gt_dict = _build_ground_truth(net, gene_names, uppercase_match=uppercase)
         if not gt_dict:
             print(f"  [SKIP] No TFs with sufficient targets")
             continue
@@ -512,7 +528,10 @@ def phase_compare():
         if net is None:
             print(f"  [ERROR] Cannot load CollecTRI for {organism}. Skipping.")
             continue
-        gt_dict = _build_ground_truth(net, gene_names)
+        # If the organism we wanted wasn't the one we got (mouse->human fallback),
+        # uppercase mouse gene names to match human CollecTRI.
+        uppercase = (organism == "mouse")
+        gt_dict = _build_ground_truth(net, gene_names, uppercase_match=uppercase)
 
         vr_results = []
         for tf, targets in gt_dict.items():
