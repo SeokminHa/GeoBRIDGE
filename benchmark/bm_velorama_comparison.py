@@ -75,6 +75,38 @@ def load_ground_truth(gt_path, n_genes=100):
 
 
 # =====================================================================
+# Evaluation helpers
+# =====================================================================
+
+def _per_target_metrics(scores_matrix, gt_matrix, n_genes):
+    """Per-target averaged AUPRC/AUROC (BEELINE/DREAM standard).
+
+    For each target j, compute AUPRC across all candidate regulators i!=j.
+    Skip targets with no true edges (degenerate labels).
+    Returns lists of per-target AUROC and AUPRC values.
+    """
+    from sklearn.metrics import average_precision_score, roc_auc_score
+
+    aurocs, auprcs = [], []
+    for j in range(n_genes):
+        scores_j, labels_j = [], []
+        for i in range(n_genes):
+            if i == j:
+                continue
+            scores_j.append(scores_matrix[i, j])
+            labels_j.append(int(gt_matrix[i, j] > 0))
+        labels_j = np.array(labels_j)
+        scores_j = np.array(scores_j)
+
+        n_pos = labels_j.sum()
+        if n_pos == 0 or n_pos == len(labels_j):
+            continue
+        aurocs.append(roc_auc_score(labels_j, scores_j))
+        auprcs.append(average_precision_score(labels_j, scores_j))
+    return aurocs, auprcs
+
+
+# =====================================================================
 # Phase 1: GeoBRIDGE
 # =====================================================================
 
@@ -204,12 +236,18 @@ def run_geobridge(data_dir, outdir):
             auprc = average_precision_score(labels, scores)
             baseline_auprc = labels.mean()  # random baseline
 
+            # Per-target averaged AUPRC (BEELINE/DREAM standard)
+            pt_aurocs, pt_auprcs = _per_target_metrics(
+                abs(S_k), gt_matrix, G)
+
             results.append({
                 "dataset": ds_name,
                 "method": "GeoBRIDGE",
                 "k": k,
                 "auroc": auroc,
                 "auprc": auprc,
+                "auroc_pertarget": np.mean(pt_aurocs) if pt_aurocs else np.nan,
+                "auprc_pertarget": np.mean(pt_auprcs) if pt_auprcs else np.nan,
                 "baseline_auprc": baseline_auprc,
                 "n_genes": G,
                 "n_edges": int(labels.sum()),
@@ -217,7 +255,8 @@ def run_geobridge(data_dir, outdir):
             })
 
             print(f"    k={k:2d}: AUROC={auroc:.4f}, AUPRC={auprc:.4f} "
-                  f"(baseline={baseline_auprc:.4f})")
+                  f"(per-target={np.mean(pt_auprcs):.4f})" if pt_auprcs
+                  else f"    k={k:2d}: AUROC={auroc:.4f}, AUPRC={auprc:.4f}")
 
     df = pd.DataFrame(results)
     df.to_csv(csvdir / "geobridge_results.csv", index=False)
@@ -393,12 +432,31 @@ def run_velorama(data_dir, outdir, device="cuda"):
             auprc = average_precision_score(labels, scores)
             baseline_auprc = labels.mean()
 
+            # Per-target averaged AUPRC (BEELINE/DREAM standard)
+            # Reconstruct score matrix from loaded interaction_df
+            score_mat = np.zeros((n_genes, n_genes))
+            for tgt_idx in range(n_genes):
+                tgt_name = str(tgt_idx)
+                if tgt_name not in interaction_df.index:
+                    continue
+                for reg_idx in range(n_genes):
+                    reg_name = str(reg_idx)
+                    if reg_name not in interaction_df.columns:
+                        continue
+                    score_mat[reg_idx, tgt_idx] = abs(
+                        interaction_df.loc[tgt_name, reg_name])
+
+            pt_aurocs, pt_auprcs = _per_target_metrics(
+                score_mat, gt_matrix, n_genes)
+
             results.append({
                 "dataset": ds_name,
                 "method": f"Velorama_{dynamics}",
                 "k": -1,  # N/A for Velorama
                 "auroc": auroc,
                 "auprc": auprc,
+                "auroc_pertarget": np.mean(pt_aurocs) if pt_aurocs else np.nan,
+                "auprc_pertarget": np.mean(pt_auprcs) if pt_auprcs else np.nan,
                 "baseline_auprc": baseline_auprc,
                 "n_genes": n_genes,
                 "n_edges": int(labels.sum()),
@@ -406,7 +464,8 @@ def run_velorama(data_dir, outdir, device="cuda"):
             })
 
             print(f"    AUROC={auroc:.4f}, AUPRC={auprc:.4f} "
-                  f"(baseline={baseline_auprc:.4f})")
+                  f"(per-target={np.mean(pt_auprcs):.4f})" if pt_auprcs
+                  else f"    AUROC={auroc:.4f}, AUPRC={auprc:.4f}")
 
     df = pd.DataFrame(results)
     df.to_csv(csvdir / "velorama_results.csv", index=False)
@@ -482,9 +541,13 @@ def compare_results(outdir):
     print(f"\n{'='*70}")
     print(f"SUMMARY TABLE")
     print(f"{'='*70}")
-    print(f"  {'Dataset':<12s}  {'Method':<25s}  {'AUROC':>7s}  {'AUPRC':>7s}  "
-          f"{'Baseline':>8s}")
-    print("  " + "-" * 65)
+    has_pt = "auprc_pertarget" in gb_df.columns
+    hdr = (f"  {'Dataset':<12s}  {'Method':<25s}  {'AUROC':>7s}  {'AUPRC':>7s}")
+    if has_pt:
+        hdr += f"  {'AUPRC(pt)':>9s}"
+    hdr += f"  {'Baseline':>8s}"
+    print(hdr)
+    print("  " + "-" * (75 if has_pt else 65))
 
     for ds_name in DATASETS:
         gb_ds = gb_df[gb_df["dataset"] == ds_name]
@@ -492,17 +555,27 @@ def compare_results(outdir):
 
         if len(gb_ds) > 0:
             best = gb_ds.loc[gb_ds["auroc"].idxmax()]
-            print(f"  {ds_name:<12s}  {'GeoBRIDGE (best k)':25s}  "
-                  f"{best['auroc']:7.4f}  {best['auprc']:7.4f}  "
-                  f"{best['baseline_auprc']:8.4f}")
+            line = (f"  {ds_name:<12s}  {'GeoBRIDGE (best k)':25s}  "
+                    f"{best['auroc']:7.4f}  {best['auprc']:7.4f}")
+            if has_pt and "auprc_pertarget" in best.index:
+                line += f"  {best['auprc_pertarget']:9.4f}"
+            line += f"  {best['baseline_auprc']:8.4f}"
+            print(line)
+
             k0 = gb_ds[gb_ds["k"] == 0]
             if len(k0) > 0:
-                print(f"  {'':12s}  {'GeoBRIDGE (k=0)':25s}  "
-                      f"{k0['auroc'].values[0]:7.4f}  {k0['auprc'].values[0]:7.4f}")
+                line = (f"  {'':12s}  {'GeoBRIDGE (k=0)':25s}  "
+                        f"{k0['auroc'].values[0]:7.4f}  {k0['auprc'].values[0]:7.4f}")
+                if has_pt and "auprc_pertarget" in k0.columns:
+                    line += f"  {k0['auprc_pertarget'].values[0]:9.4f}"
+                print(line)
 
         for _, row in vr_ds.iterrows():
-            print(f"  {'':12s}  {row['method']:25s}  "
-                  f"{row['auroc']:7.4f}  {row['auprc']:7.4f}")
+            line = (f"  {'':12s}  {row['method']:25s}  "
+                    f"{row['auroc']:7.4f}  {row['auprc']:7.4f}")
+            if has_pt and "auprc_pertarget" in row.index:
+                line += f"  {row['auprc_pertarget']:9.4f}"
+            print(line)
 
     # Plots
     try:
