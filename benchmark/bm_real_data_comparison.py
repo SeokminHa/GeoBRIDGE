@@ -41,14 +41,89 @@ PREPARED_DIR = OUTDIR / "prepared_h5ad"
 # Ground truth: CollecTRI via decoupler
 MIN_TARGETS_PER_TF = 5
 
-# GeoBRIDGE k values (minimal, per user directive)
-K_VALUES = [0, 5]
+# GeoBRIDGE k values
+K_VALUES = [0, 1, 3, 5, 10, 20, 50]
+
+# Top-K values for precision evaluation
+TOP_K_VALUES = [10, 20, 50, 100]
 
 # Organism per dataset (pancreas = mouse, bonemarrow = human)
 DATASET_ORGANISM = {
     "bonemarrow": "human",
     "pancreas": "mouse",
 }
+
+
+# =====================================================================
+# Evaluation helpers
+# =====================================================================
+
+def _evaluate_tf(scores_tf, labels_tf, top_k_values=TOP_K_VALUES):
+    """
+    Compute all metrics for one TF.
+
+    Args:
+      scores_tf: 1D array of abs scores for each candidate gene
+      labels_tf: 1D binary array (1 = true target)
+
+    Returns dict with:
+      auroc, auprc, n_targets, n_candidates
+      top_k_precision_<k>, top_k_recall_<k>
+      epr  = precision@n_targets / baseline
+      gt_score_mean, gt_score_median, gt_score_rank_pct
+      bg_score_mean, bg_score_median
+      gt_vs_bg_ratio (mean GT score / mean BG score)
+    """
+    from sklearn.metrics import average_precision_score, roc_auc_score
+
+    n_pos = int(labels_tf.sum())
+    n_total = len(labels_tf)
+    baseline = n_pos / n_total
+
+    out = {
+        "n_targets": n_pos,
+        "n_candidates": n_total,
+        "baseline_auprc": baseline,
+        "auroc": roc_auc_score(labels_tf, scores_tf),
+        "auprc": average_precision_score(labels_tf, scores_tf),
+    }
+
+    # Rank-based metrics
+    order = np.argsort(-scores_tf)  # descending
+    ranks = np.empty_like(order)
+    ranks[order] = np.arange(n_total)
+
+    # Top-K precision and recall
+    for k in top_k_values:
+        if k > n_total:
+            continue
+        top_k_labels = labels_tf[order[:k]]
+        out[f"topk_precision_{k}"] = float(top_k_labels.mean())
+        out[f"topk_recall_{k}"] = float(top_k_labels.sum() / max(n_pos, 1))
+
+    # EPR: Early Precision Ratio (Velorama/BEELINE standard)
+    # precision @ k = n_pos  divided by baseline
+    k_epr = n_pos
+    if k_epr > 0 and k_epr <= n_total:
+        prec_at_npos = float(labels_tf[order[:k_epr]].mean())
+        out["precision_at_npos"] = prec_at_npos
+        out["epr"] = prec_at_npos / max(baseline, 1e-12)
+
+    # GT score distribution
+    gt_scores = scores_tf[labels_tf == 1]
+    bg_scores = scores_tf[labels_tf == 0]
+    out["gt_score_mean"] = float(gt_scores.mean())
+    out["gt_score_median"] = float(np.median(gt_scores))
+    out["bg_score_mean"] = float(bg_scores.mean())
+    out["bg_score_median"] = float(np.median(bg_scores))
+    out["gt_vs_bg_ratio"] = out["gt_score_mean"] / max(out["bg_score_mean"], 1e-12)
+
+    # Mean percentile rank of GT targets (0 = best rank, 1 = worst)
+    gt_ranks = ranks[labels_tf == 1]
+    out["gt_rank_pct_mean"] = float(gt_ranks.mean() / n_total)
+    out["gt_rank_pct_median"] = float(np.median(gt_ranks) / n_total)
+
+    return out
 
 
 # =====================================================================
@@ -437,26 +512,24 @@ def phase_geobridge():
                 if labels_tf.sum() == 0 or labels_tf.sum() == len(labels_tf):
                     continue
 
-                auroc = roc_auc_score(labels_tf, scores_tf)
-                auprc = average_precision_score(labels_tf, scores_tf)
-                n_tgt = int(labels_tf.sum())
-
-                tf_results.append({
+                metrics = _evaluate_tf(scores_tf, labels_tf)
+                row = {
                     "dataset": ds_name,
                     "method": "GeoBRIDGE",
                     "k": k,
                     "tf": tf,
-                    "n_targets": n_tgt,
-                    "auroc": auroc,
-                    "auprc": auprc,
-                })
+                    **metrics,
+                }
+                tf_results.append(row)
 
             if tf_results:
                 tf_df = pd.DataFrame(tf_results)
-                mean_auroc = tf_df["auroc"].mean()
-                mean_auprc = tf_df["auprc"].mean()
-                print(f"  k={k}: mean AUROC={mean_auroc:.4f}, "
-                      f"mean AUPRC={mean_auprc:.4f} ({len(tf_df)} TFs)")
+                print(f"  k={k:3d}: "
+                      f"AUROC={tf_df['auroc'].mean():.4f}±{tf_df['auroc'].std():.3f}  "
+                      f"AUPRC={tf_df['auprc'].mean():.4f}±{tf_df['auprc'].std():.3f}  "
+                      f"EPR={tf_df['epr'].mean():.2f}  "
+                      f"GT/BG={tf_df['gt_vs_bg_ratio'].mean():.3f}  "
+                      f"({len(tf_df)} TFs)")
 
                 results.extend(tf_results)
 
@@ -554,53 +627,80 @@ def phase_compare():
             if labels_tf.sum() == 0 or labels_tf.sum() == len(labels_tf):
                 continue
 
-            auroc = roc_auc_score(labels_tf, scores_tf)
-            auprc = average_precision_score(labels_tf, scores_tf)
-
+            metrics = _evaluate_tf(scores_tf, labels_tf)
             vr_results.append({
                 "dataset": ds_name,
                 "method": "Velorama",
                 "k": -1,
                 "tf": tf,
-                "n_targets": int(labels_tf.sum()),
-                "auroc": auroc,
-                "auprc": auprc,
+                **metrics,
             })
 
         if vr_results:
             vr_df = pd.DataFrame(vr_results)
-            print(f"  Velorama: mean AUROC={vr_df['auroc'].mean():.4f}, "
-                  f"mean AUPRC={vr_df['auprc'].mean():.4f} ({len(vr_df)} TFs)")
+            print(f"  Velorama: "
+                  f"AUROC={vr_df['auroc'].mean():.4f}±{vr_df['auroc'].std():.3f}  "
+                  f"AUPRC={vr_df['auprc'].mean():.4f}±{vr_df['auprc'].std():.3f}  "
+                  f"EPR={vr_df['epr'].mean():.2f}  "
+                  f"({len(vr_df)} TFs)")
             all_results.append(vr_df)
 
     # Combine and summarize
     combined = pd.concat(all_results, ignore_index=True)
     combined.to_csv(csvdir / "real_comparison_full.csv", index=False)
 
-    # Summary table
-    print(f"\n{'='*70}")
+    # Summary table (per dataset × method × k)
+    print(f"\n{'='*100}")
     print(f"SUMMARY: Real Data Comparison")
-    print(f"{'='*70}")
-    print(f"\n{'Dataset':<14s} {'Method':<22s} {'Mean AUROC':>10s} {'Mean AUPRC':>10s} "
-          f"{'N TFs':>6s}")
-    print("-" * 70)
+    print(f"{'='*100}")
+
+    header = (f"{'Dataset':<12s} {'Method':<22s} "
+              f"{'AUROC':>8s}±{'sd':<5s} {'AUPRC':>8s}±{'sd':<5s} "
+              f"{'EPR':>6s} {'GT/BG':>7s} {'P@20':>6s} {'P@100':>6s} {'N':>4s}")
+    print(header)
+    print("-" * 100)
 
     for ds_name in ["bonemarrow", "pancreas"]:
-        for method_k in [("Velorama", -1), ("GeoBRIDGE", 0), ("GeoBRIDGE", 5)]:
-            method, k = method_k
+        # Velorama row(s)
+        for method, k in [("Velorama", -1)] + [("GeoBRIDGE", kv) for kv in K_VALUES]:
             mask = (combined["dataset"] == ds_name) & (combined["method"] == method)
             if k >= 0:
                 mask = mask & (combined["k"] == k)
             sub = combined[mask]
             if len(sub) == 0:
                 continue
-            label = f"{method}" if k < 0 else f"{method} (k={k})"
-            print(f"  {ds_name:<12s} {label:<22s} "
-                  f"{sub['auroc'].mean():10.4f} {sub['auprc'].mean():10.4f} "
-                  f"{len(sub):6d}")
+            label = f"{method}" if k < 0 else f"{method} k={k}"
+            row = (
+                f"  {ds_name:<10s} {label:<22s} "
+                f"{sub['auroc'].mean():8.4f}±{sub['auroc'].std():5.3f} "
+                f"{sub['auprc'].mean():8.4f}±{sub['auprc'].std():5.3f} "
+                f"{sub['epr'].mean():6.2f} "
+                f"{sub['gt_vs_bg_ratio'].mean():7.3f} "
+                f"{sub.get('topk_precision_20', pd.Series([np.nan])).mean():6.3f} "
+                f"{sub.get('topk_precision_100', pd.Series([np.nan])).mean():6.3f} "
+                f"{len(sub):4d}"
+            )
+            print(row)
         print()
 
+    # Per-dataset aggregate summary CSV (one row per method×k)
+    agg_rows = []
+    metric_cols = [c for c in combined.columns
+                   if c not in ("dataset", "method", "k", "tf")]
+    for (ds, method, k), grp in combined.groupby(["dataset", "method", "k"]):
+        row = {"dataset": ds, "method": method, "k": k, "n_tfs": len(grp)}
+        for col in metric_cols:
+            if col in grp.columns:
+                row[f"{col}_mean"] = grp[col].mean()
+                row[f"{col}_std"] = grp[col].std()
+                row[f"{col}_median"] = grp[col].median()
+        agg_rows.append(row)
+
+    agg_df = pd.DataFrame(agg_rows)
+    agg_df.to_csv(csvdir / "real_comparison_aggregate.csv", index=False)
+
     print(f"\n[SAVE] real_comparison_full.csv ({len(combined)} rows)")
+    print(f"[SAVE] real_comparison_aggregate.csv ({len(agg_df)} rows)")
 
 
 # =====================================================================
