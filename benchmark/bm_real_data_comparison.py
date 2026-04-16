@@ -160,8 +160,13 @@ def prepare_pancreas():
     adata = scv.datasets.pancreas()
     print(f"  Raw: {adata.shape}")
 
-    # Preprocess
-    scv.pp.filter_and_normalize(adata, min_shared_counts=20, n_top_genes=2000)
+    # Preprocess (split steps to avoid scVelo API compat issues)
+    scv.pp.filter_genes(adata, min_shared_counts=20)
+    sc.pp.normalize_total(adata)
+    sc.pp.log1p(adata)
+    sc.pp.highly_variable_genes(adata, n_top_genes=2000, flavor="seurat_v3",
+                                layer="spliced")
+    adata = adata[:, adata.var["highly_variable"]].copy()
     print(f"  After filter: {adata.shape}")
 
     # Velocity
