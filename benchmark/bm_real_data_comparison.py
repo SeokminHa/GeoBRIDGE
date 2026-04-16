@@ -57,17 +57,19 @@ DATASET_ORGANISM = {
 
 def _load_collectri_regulons(organism="human"):
     """Load CollecTRI regulons via decoupler."""
-    try:
-        import decoupler as dc
-        net = dc.get_collectri(organism=organism)
-    except Exception:
+    import decoupler as dc
+    # decoupler 2.x: dc.op.collectri(); older: dc.get_collectri()
+    for fn in [
+        lambda: dc.op.collectri(organism=organism),
+        lambda: dc.get_collectri(organism=organism),
+        lambda: dc.op.get_collectri(organism=organism),
+    ]:
         try:
-            import decoupler as dc
-            net = dc.op.get_collectri(organism=organism)
-        except Exception as e:
-            print(f"  [ERROR] Cannot load CollecTRI: {e}")
-            return None
-    return net
+            return fn()
+        except (AttributeError, TypeError):
+            continue
+    print(f"  [ERROR] Cannot load CollecTRI (decoupler {dc.__version__})")
+    return None
 
 
 def _build_ground_truth(net, gene_names, min_targets=MIN_TARGETS_PER_TF):
