@@ -56,18 +56,31 @@ DATASET_ORGANISM = {
 # =====================================================================
 
 def _load_collectri_regulons(organism="human"):
-    """Load CollecTRI regulons via decoupler."""
+    """Load CollecTRI regulons via decoupler.
+
+    Falls back to human if mouse ortholog download fails (EBI 404).
+    """
     import decoupler as dc
-    # decoupler 2.x: dc.op.collectri(); older: dc.get_collectri()
-    for fn in [
-        lambda: dc.op.collectri(organism=organism),
-        lambda: dc.get_collectri(organism=organism),
-        lambda: dc.op.get_collectri(organism=organism),
-    ]:
-        try:
-            return fn()
-        except (AttributeError, TypeError):
-            continue
+
+    for org in ([organism, "human"] if organism != "human" else ["human"]):
+        for fn in [
+            lambda: dc.op.collectri(organism=org),
+            lambda: dc.get_collectri(organism=org),
+            lambda: dc.op.get_collectri(organism=org),
+        ]:
+            try:
+                net = fn()
+                if org != organism:
+                    print(f"  [WARN] Using human CollecTRI (mouse ortholog unavailable)")
+                return net
+            except (AttributeError, TypeError):
+                continue
+            except Exception as e:
+                if "404" in str(e) or "HTTPError" in str(type(e).__name__):
+                    print(f"  [WARN] {org} CollecTRI download failed: {e}")
+                    break  # try next organism
+                continue
+
     print(f"  [ERROR] Cannot load CollecTRI (decoupler {dc.__version__})")
     return None
 
