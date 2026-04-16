@@ -266,6 +266,9 @@ def phase_velorama(device="cuda"):
 
         # Velorama needs root_dir containing the h5ad
         # Use the prepared dir as root, dataset name must match filename
+        # IMPORTANT: use absolute paths — Ray Tune workers run from a different cwd
+        rd_abs = str(PREPARED_DIR.resolve())
+        sd_abs = str(velorama_outdir.resolve())
         cmd = [
             "velorama",
             "-n", ds_name,
@@ -275,8 +278,8 @@ def phase_velorama(device="cuda"):
             "-l", "5",
             "-hd", "32",
             "-mi", "1000",
-            "-rd", str(PREPARED_DIR),
-            "-sd", str(velorama_outdir),
+            "-rd", rd_abs,
+            "-sd", sd_abs,
             # Narrow lambda range (informed by SERGIO diagnosis)
             "-ls", "-2.3",
             "-le", "-0.7",
@@ -294,8 +297,6 @@ def phase_velorama(device="cuda"):
 
                 # Try default lambda range as fallback
                 print(f"  Retrying with default lambda range...")
-                cmd_default = [c for c in cmd]
-                # Remove narrow lambda args
                 cmd_default = [
                     "velorama",
                     "-n", ds_name,
@@ -303,8 +304,8 @@ def phase_velorama(device="cuda"):
                     "-dyn", "rna_velocity",
                     "-dev", device,
                     "-l", "5", "-hd", "32", "-mi", "1000",
-                    "-rd", str(PREPARED_DIR),
-                    "-sd", str(velorama_outdir),
+                    "-rd", rd_abs,
+                    "-sd", sd_abs,
                 ]
                 result2 = subprocess.run(cmd_default, capture_output=True, text=True,
                                          timeout=14400)
@@ -443,10 +444,14 @@ def phase_geobridge():
 
                 results.extend(tf_results)
 
+        # Incremental save after each dataset (so a pancreas crash doesn't lose bonemarrow)
+        if results:
+            df = pd.DataFrame(results)
+            df.to_csv(csvdir / "geobridge_real_results.csv", index=False)
+            print(f"  [SAVE] geobridge_real_results.csv ({len(df)} rows so far)")
+
     if results:
-        df = pd.DataFrame(results)
-        df.to_csv(csvdir / "geobridge_real_results.csv", index=False)
-        print(f"\n[SAVE] geobridge_real_results.csv ({len(df)} rows)")
+        print(f"\n[DONE] {len(results)} total rows saved to geobridge_real_results.csv")
 
 
 # =====================================================================
