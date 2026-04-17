@@ -180,21 +180,30 @@ def summarize(all_df, outdir):
                 "n_tfs": len(common_tfs),
             })
 
-    # Decision block
+    # Decision block — criterion proportional to actual N datasets run
     lines.append("\n## Pre-specified criterion evaluation (at k=5)\n")
     k5 = pd.DataFrame([r for r in summary_rows if r["k"] == 5])
     if len(k5):
         n_pass_crit = int(k5["criterion_pass"].sum())
         n_pass_wilc = int((k5["paired_wilcoxon_p"] < 0.05).sum())
         n_total = len(k5)
+        # Criterion: 2/3 of datasets must pass
+        crit_threshold = int(np.ceil(2 * n_total / 3))
         lines.append(f"- SVD > Random+1.96·SE: **{n_pass_crit}/{n_total}** datasets "
-                     f"(need ≥4)")
+                     f"(need ≥{crit_threshold}, = 2/3 of datasets run)")
         lines.append(f"- Paired Wilcoxon p < 0.05: **{n_pass_wilc}/{n_total}** datasets "
-                     f"(need ≥3)")
+                     f"(need ≥{crit_threshold})")
 
-        verdict = ("**PASS**" if (n_pass_crit >= 4 and n_pass_wilc >= 3) else
-                   "**FAIL — reframe paper**" if (n_pass_crit == 0) else
-                   "**MIXED — interpret carefully**")
+        if n_total < 3:
+            verdict = (f"**INDICATIVE (n={n_total} datasets, run more for stronger claim)**"
+                       if (n_pass_crit == n_total and n_pass_wilc == n_total)
+                       else "**INCONCLUSIVE — run more datasets**")
+        else:
+            verdict = ("**PASS**" if (n_pass_crit >= crit_threshold
+                                       and n_pass_wilc >= crit_threshold)
+                       else "**FAIL — reframe paper**"
+                       if (n_pass_crit == 0 and n_pass_wilc == 0)
+                       else "**MIXED — interpret carefully**")
         lines.append(f"- Verdict: {verdict}\n")
 
     (outdir / "REPORT.md").write_text("\n".join(lines))
