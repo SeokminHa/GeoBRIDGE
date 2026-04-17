@@ -23,7 +23,9 @@ SUB_DIR=$ROOT/results/bm_real_comparison/validation/exp5_stability/subsamples
 OUT_DIR=$ROOT/results/bm_real_comparison/validation/exp5_stability/velorama_out
 mkdir -p $OUT_DIR
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3  # adjust as needed
+# Honor CUDA_VISIBLE_DEVICES if already set in env; else default to 0,1,2,3
+export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0,1,2,3}
+echo "[info] Using CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
 
 for SEED in "${SEEDS[@]}"; do
     NAME="${DS}_seed${SEED}"
