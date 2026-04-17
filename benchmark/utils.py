@@ -49,7 +49,21 @@ DATASET_ORGANISM = {
 def load_sergio(name):
     """SERGIO dataset → (X, V, pt, gene_names, gt_dict)."""
     import scanpy as sc
-    h5ad = SERGIO_BASE / f"test_{name}.h5ad"
+    # Try both naming conventions
+    candidates = [
+        SERGIO_BASE / f"dataset_{name}.h5ad",
+        SERGIO_BASE / f"test_{name}.h5ad",
+    ]
+    h5ad = None
+    for cand in candidates:
+        if cand.exists():
+            h5ad = cand
+            break
+    if h5ad is None:
+        raise FileNotFoundError(
+            f"No SERGIO h5ad for '{name}'. Tried: "
+            + ", ".join(str(c) for c in candidates)
+        )
     adata = sc.read_h5ad(str(h5ad))
 
     if "Ms" in adata.layers:
@@ -136,9 +150,13 @@ def load_dataset(name):
 def load_adata(name):
     """Raw AnnData for methods that need an AnnData (Scribe/Velorama)."""
     import scanpy as sc
-    path = (SERGIO_BASE / f"test_{name}.h5ad") if name in SERGIO_DATASETS \
-           else (REAL_BASE / f"{name}.h5ad")
-    return sc.read_h5ad(str(path))
+    if name in SERGIO_DATASETS:
+        for cand in [SERGIO_BASE / f"dataset_{name}.h5ad",
+                     SERGIO_BASE / f"test_{name}.h5ad"]:
+            if cand.exists():
+                return sc.read_h5ad(str(cand))
+        raise FileNotFoundError(f"No SERGIO h5ad for {name}")
+    return sc.read_h5ad(str(REAL_BASE / f"{name}.h5ad"))
 
 
 # ---------- Pair-space feature construction ----------
