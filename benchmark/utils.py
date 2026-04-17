@@ -66,6 +66,17 @@ def load_sergio(name):
         )
     adata = sc.read_h5ad(str(h5ad))
 
+    # Compute velocity on-the-fly if missing (SERGIO h5ads typically have
+    # spliced/unspliced only; velocity is computed downstream by each method)
+    if "velocity" not in adata.layers:
+        import scvelo as scv
+        print(f"    [info] computing velocity for SERGIO {name}...")
+        try:
+            scv.pp.moments(adata, n_pcs=30, n_neighbors=30)
+            scv.tl.velocity(adata, mode="stochastic")
+        except Exception as e:
+            raise RuntimeError(f"Could not compute velocity for {name}: {e}")
+
     if "Ms" in adata.layers:
         X = np.asarray(adata.layers["Ms"], dtype=float)
     elif hasattr(adata.X, "toarray"):
@@ -75,10 +86,25 @@ def load_sergio(name):
 
     V = np.nan_to_num(np.asarray(adata.layers["velocity"], dtype=float), nan=0.0)
 
+    # Pseudotime: use existing or derive from DPT
     if "pseudotime" in adata.obs:
         pt = np.asarray(adata.obs["pseudotime"], dtype=float)
+    elif "dpt_pseudotime" in adata.obs:
+        pt = np.asarray(adata.obs["dpt_pseudotime"], dtype=float)
     else:
-        pt = np.arange(adata.shape[0], dtype=float)
+        # Derive DPT
+        import scanpy as sc_lib
+        try:
+            if "X_pca" not in adata.obsm:
+                sc_lib.pp.pca(adata, n_comps=30)
+            if "neighbors" not in adata.uns:
+                sc_lib.pp.neighbors(adata, n_pcs=30)
+            sc_lib.tl.diffmap(adata)
+            adata.uns["iroot"] = 0  # arbitrary root
+            sc_lib.tl.dpt(adata)
+            pt = np.asarray(adata.obs["dpt_pseudotime"], dtype=float)
+        except Exception:
+            pt = np.arange(adata.shape[0], dtype=float)
     pt = np.nan_to_num(pt, nan=float(np.nanmedian(pt)))
 
     gene_names = list(adata.var_names)
