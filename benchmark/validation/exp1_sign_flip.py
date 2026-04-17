@@ -96,9 +96,10 @@ def run_one_dataset(ds):
             if gene == tf_col or gene not in df_velo.index:
                 continue
             scores_signed.append(float(df_velo.loc[gene, tf_col]))
-            # Label logic: target_set keys are uppercase (if uppercase mode)
-            gene_key = gene.upper() if uppercase else gene
-            labels.append(1 if gene_key in targets else 0)
+            # _build_ground_truth (uppercase_match=True) stores targets in
+            # ORIGINAL case (mouse gene symbols like 'Sox9'), not uppercase.
+            # Compare gene directly, no upper() transform.
+            labels.append(1 if gene in targets else 0)
 
         labels = np.array(labels)
         scores_signed = np.array(scores_signed)
