@@ -10,7 +10,11 @@
 #
 # Assumes Velorama ngpu patch is applied (ngpu=1) and -cp 4 works.
 
-set -e
+# Note: do NOT use set -e here — Ray workers may error on individual trials
+# while the aggregate TSV still gets produced, and we want to attempt all
+# seeds rather than aborting at the first failure. Check per-seed TSV
+# existence after.
+set +e
 
 DS=${1:-bonemarrow}
 SEEDS=(42 43 44 45 46)
@@ -38,12 +42,15 @@ for SEED in "${SEEDS[@]}"; do
     fi
 
     echo "=== Running Velorama on $NAME ==="
+    # NOTE: narrow lambda range (-ls -2.3 -le -0.7 -nl 19) caused
+    # estimate_interactions to fail on cell-subsampled data (all trials
+    # filtered out by nnz_percent threshold). Using default lambda range
+    # (velorama picks a broad grid) for robustness.
     velorama \
         -n "$NAME" -ds "$NAME" -dyn rna_velocity -dev cuda \
         -l 5 -hd 32 -mi 1000 -cp 4 \
         -rd "$SUB_DIR" \
         -sd "$SEED_OUT" \
-        -ls -2.3 -le -0.7 -nl 19 \
         2>&1 | tee "$OUT_DIR/${NAME}.log"
 done
 
