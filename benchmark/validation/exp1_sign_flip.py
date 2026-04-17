@@ -135,14 +135,22 @@ def summarize(df):
     if df is None or len(df) == 0:
         return "  (no data)"
     lines = []
-    for col, label in [
-        ("auroc_abs", "abs(score)"),
-        ("auroc_signed", "signed(score)"),
-        ("auroc_neg_signed", "-signed(score)"),
+    # Baseline AUPRC (mean n_targets / n_candidates-1); n_candidates always
+    # equals len(gene_names)-1. Compute from n_targets.
+    baseline_auprc = (df["n_targets"] / (2000 - 1)).mean()
+    lines.append(f"  Baseline AUPRC (random): ~{baseline_auprc:.4f}")
+    for col_auroc, col_auprc, label in [
+        ("auroc_abs", "auprc_abs", "abs(score)"),
+        ("auroc_signed", "auprc_signed", "signed(score)"),
+        ("auroc_neg_signed", "auprc_neg_signed", "-signed(score)"),
     ]:
-        m, s = df[col].mean(), df[col].std()
-        lines.append(f"  AUROC [{label:<18s}]: {m:.4f} ± {s:.3f}  "
-                     f"(n={len(df)}, >0.5 in {(df[col] > 0.5).sum()}/{len(df)} TFs)")
+        mR, sR = df[col_auroc].mean(), df[col_auroc].std()
+        mP, sP = df[col_auprc].mean(), df[col_auprc].std()
+        lines.append(
+            f"  [{label:<18s}] "
+            f"AUROC={mR:.4f}±{sR:.3f} (>0.5: {(df[col_auroc] > 0.5).sum()}/{len(df)})  "
+            f"AUPRC={mP:.4f}±{sP:.3f} ({mP/max(baseline_auprc, 1e-9):.2f}×baseline)"
+        )
     return "\n".join(lines)
 
 
@@ -173,16 +181,23 @@ def main():
         if not csv_path.exists():
             continue
         df = pd.read_csv(csv_path)
-        report_lines.append(f"\n## {ds}  (n_TFs = {len(df)})")
-        report_lines.append(
-            f"- mean AUROC abs       : {df['auroc_abs'].mean():.4f}"
-        )
-        report_lines.append(
-            f"- mean AUROC signed    : {df['auroc_signed'].mean():.4f}"
-        )
-        report_lines.append(
-            f"- mean AUROC -signed   : {df['auroc_neg_signed'].mean():.4f}"
-        )
+        baseline_auprc = (df["n_targets"] / 1999).mean()
+        report_lines.append(f"\n## {ds}  (n_TFs = {len(df)}, baseline AUPRC ≈ {baseline_auprc:.4f})")
+        report_lines.append("\n| score convention | AUROC | AUPRC | AUPRC ÷ baseline | frac(AUROC>0.5) |")
+        report_lines.append("|---|---|---|---|---|")
+        for col_auroc, col_auprc, label in [
+            ("auroc_abs", "auprc_abs", "abs(score)"),
+            ("auroc_signed", "auprc_signed", "signed(score)"),
+            ("auroc_neg_signed", "auprc_neg_signed", "-signed(score)"),
+        ]:
+            mR = df[col_auroc].mean()
+            mP = df[col_auprc].mean()
+            ratio = mP / max(baseline_auprc, 1e-9)
+            frac = (df[col_auroc] > 0.5).sum() / len(df)
+            report_lines.append(
+                f"| {label} | {mR:.4f} | {mP:.4f} | {ratio:.2f}× | "
+                f"{frac:.2f} ({(df[col_auroc] > 0.5).sum()}/{len(df)}) |"
+            )
 
         # Decision
         has_neg = df["score_has_negative"].any()
@@ -196,7 +211,7 @@ def main():
                 decision = "SIGN FLIP IS REQUIRED — -signed AUROC > 0.55 while signed < 0.45."
             else:
                 decision = "No strong sign flip evidence."
-        report_lines.append(f"- decision             : **{decision}**")
+        report_lines.append(f"\n**Decision**: {decision}")
 
     report = "\n".join(report_lines)
     (EXP1_DIR / "REPORT.md").write_text(report)
