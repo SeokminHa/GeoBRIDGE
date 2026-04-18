@@ -205,6 +205,25 @@ def run_dataset(name, k_values, n_random_seeds, verify=True,
                 return format(df[col].mean(), fmt)
             return "-"
 
+        # Build seed-mean signed-AUPRC and dir_acc for the Random arm
+        def _mean_rand_seed_col(col):
+            vals = []
+            for seed in range(n_random_seeds):
+                rseed_rows = [r for r in rows if r.get("seed") == seed
+                              and r.get("method") == "Random" and r.get("k") == k
+                              and col in r and r[col] is not None
+                              and not (isinstance(r[col], float) and np.isnan(r[col]))]
+                if rseed_rows:
+                    vals.append(np.mean([r[col] for r in rseed_rows]))
+            return np.mean(vals) if vals else float("nan")
+
+        rand_ap_pos = _mean_rand_seed_col("auprc_signed_pos")
+        rand_ap_neg = _mean_rand_seed_col("auprc_signed_neg")
+        rand_dir    = _mean_rand_seed_col("dir_acc")
+
+        def _fmtv(v, fmt=".4f"):
+            return format(v, fmt) if not np.isnan(v) else "-"
+
         print(
             f"  k={k:3d}:\n"
             f"    SVD(pyF)    AUROC={df_svd['auroc'].mean():.4f}  "
@@ -221,7 +240,10 @@ def run_dataset(name, k_values, n_random_seeds, verify=True,
             f"dir_acc={_fmt(df_svd_y, 'dir_acc', '.3f')}\n"
             f"    Random(pyF) AUROC={np.mean(rand_aurocs):.4f}±{np.std(rand_aurocs):.4f}  "
             f"AUPRC={np.mean(rand_auprc_means):.4f}  "
-            f"stdAUPRC={np.mean(rand_std_auprc_means):.2f}x"
+            f"stdAUPRC={np.mean(rand_std_auprc_means):.2f}x  |  "
+            f"signed_pos_AUPRC={_fmtv(rand_ap_pos)}  "
+            f"signed_neg_AUPRC={_fmtv(rand_ap_neg)}  "
+            f"dir_acc={_fmtv(rand_dir, '.3f')}"
         )
 
     return pd.DataFrame(rows), {"gate_pass": gate_pass,
@@ -436,10 +458,12 @@ def summarize(all_df, outdir):
             lines.append(
                 "| k | SVD(pyF) AUROC | SVD(pyT) AUROC | "
                 "Random mean AUROC | Δ (95% CI) | p(seed-mean) | p(seed-max) | p(win-rate) | "
-                "SVD signed_pos_AUPRC | SVD signed_neg_AUPRC | SVD dir_acc | "
+                "SVD signed_pos | Rand signed_pos | "
+                "SVD signed_neg | Rand signed_neg | "
+                "SVD dir_acc | Rand dir_acc | "
                 "SVD stdAUPRC | Rand stdAUPRC |"
             )
-            lines.append("|" + "---|" * 13)
+            lines.append("|" + "---|" * 16)
 
             for k in sorted(sub[sub["k"] > 0]["k"].unique()):
                 svd_tfs = sub[(sub["k"] == k) & (sub["method"] == "SVD")]
@@ -467,6 +491,15 @@ def summarize(all_df, outdir):
                 svd_ap_pos = _mean_or_nan(svd_tfs, "auprc_signed_pos")
                 svd_ap_neg = _mean_or_nan(svd_tfs, "auprc_signed_neg")
                 svd_dir    = _mean_or_nan(svd_tfs, "dir_acc")
+                # Random arm: average across seeds first, then across TFs
+                def _rand_mean(col):
+                    if col not in rnd_tfs.columns or rnd_tfs[col].isna().all():
+                        return float("nan")
+                    per_seed = rnd_tfs.groupby("seed")[col].mean()
+                    return per_seed.mean()
+                rand_ap_pos = _rand_mean("auprc_signed_pos")
+                rand_ap_neg = _rand_mean("auprc_signed_neg")
+                rand_dir    = _rand_mean("dir_acc")
 
                 def _fmtf(v, fmt=".4f"):
                     return format(v, fmt) if not np.isnan(v) else "-"
@@ -476,7 +509,9 @@ def summarize(all_df, outdir):
                     f"{rand_mean_auroc:.4f} | {dmean:+.4f} [{dlo:+.4f}, {dhi:+.4f}] | "
                     f"{tests['p_seedmean']:.3g} | {tests['p_seedmax']:.3g} | "
                     f"{tests['p_winrate']:.3g} | "
-                    f"{_fmtf(svd_ap_pos)} | {_fmtf(svd_ap_neg)} | {_fmtf(svd_dir, '.3f')} | "
+                    f"{_fmtf(svd_ap_pos)} | {_fmtf(rand_ap_pos)} | "
+                    f"{_fmtf(svd_ap_neg)} | {_fmtf(rand_ap_neg)} | "
+                    f"{_fmtf(svd_dir, '.3f')} | {_fmtf(rand_dir, '.3f')} | "
                     f"{svd_std_auprc:.2f}× | {rand_std_auprc:.2f}× |"
                 )
 
@@ -487,8 +522,11 @@ def summarize(all_df, outdir):
                     "random_auroc_mean": rand_mean_auroc,
                     "svd_std_auprc": svd_std_auprc, "random_std_auprc": rand_std_auprc,
                     "svd_auprc_signed_pos": svd_ap_pos,
+                    "random_auprc_signed_pos": rand_ap_pos,
                     "svd_auprc_signed_neg": svd_ap_neg,
+                    "random_auprc_signed_neg": rand_ap_neg,
                     "svd_dir_acc": svd_dir,
+                    "random_dir_acc": rand_dir,
                     "delta_auroc": dmean, "delta_ci95_lo": dlo, "delta_ci95_hi": dhi,
                     "p_seedmean": tests["p_seedmean"],
                     "p_seedmax": tests["p_seedmax"],
