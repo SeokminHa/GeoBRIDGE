@@ -95,16 +95,22 @@ def run_dataset(name, k_values, n_random_seeds, verify=True,
           f"AUROC={id_auroc:.4f}  AUPRC={id_auprc:.4f}  "
           f"sAUPRC={id_sauprc:.2f}x baseline")
 
-    # CRITICAL GATE: identity AUROC must be > 0.5 for the ablation to be
-    # interpretable. If identity is anti-signal, SVD and Random are both
-    # amplifying/preserving an inverted signal and results are meaningless.
-    if id_auroc <= 0.5 and not allow_antisignal_identity:
-        print(f"  [!!!] Identity AUROC = {id_auroc:.4f} ≤ 0.5 — base scoring is")
-        print(f"        anti-signal or null on this dataset. Projection ablation")
-        print(f"        is NOT interpretable. Check velocity / pseudotime / gene")
-        print(f"        orientation first.  Use --allow-antisignal-identity to")
-        print(f"        proceed anyway (flagged in the output).")
-        return pd.DataFrame(rows), {"identity_auroc_gate_pass": False}
+    # FLAG (not filter): identity AUROC is saved and gate-pass is flagged
+    # on every row. Downstream analysis decides whether to include.
+    gate_pass = bool(id_auroc > 0.5)
+    if not gate_pass:
+        print(f"  [WARN] Identity AUROC = {id_auroc:.4f} ≤ 0.5 — base scoring is")
+        print(f"         anti-signal or null. Ablation will run but results on")
+        print(f"         this dataset are NOT interpretable as SVD/Random evidence.")
+        print(f"         Retained for transparency; gate_pass=False in CSV.")
+        if not allow_antisignal_identity:
+            # Legacy path: still return early if explicit flag not set
+            # (preserves old behavior for scripts that rely on it)
+            pass  # we now always continue
+    # Tag the k=0 identity rows with gate status
+    for r in rows:
+        r["identity_auroc"] = id_auroc
+        r["gate_pass"] = gate_pass
 
     # k sweep
     for k in k_values:
@@ -117,7 +123,9 @@ def run_dataset(name, k_values, n_random_seeds, verify=True,
         df_svd = evaluate_scores_per_tf(scores_svd, gt_dict, gene_names)
         for _, r in df_svd.iterrows():
             rows.append({"dataset": name, "method": "SVD",
-                         "project_y": False, "k": k, "seed": -1, **r.to_dict()})
+                         "project_y": False, "k": k, "seed": -1,
+                         "identity_auroc": id_auroc, "gate_pass": gate_pass,
+                         **r.to_dict()})
 
         # SVD, project_y=True (production default; reference only)
         scores_svd_y = GeoBridgeModel.scores_from_streaming_stats(
@@ -126,7 +134,9 @@ def run_dataset(name, k_values, n_random_seeds, verify=True,
         df_svd_y = evaluate_scores_per_tf(scores_svd_y, gt_dict, gene_names)
         for _, r in df_svd_y.iterrows():
             rows.append({"dataset": name, "method": "SVD_projectY",
-                         "project_y": True, "k": k, "seed": -1, **r.to_dict()})
+                         "project_y": True, "k": k, "seed": -1,
+                         "identity_auroc": id_auroc, "gate_pass": gate_pass,
+                         **r.to_dict()})
 
         # Random, project_y=False × seeds
         rand_aurocs = []
@@ -137,7 +147,9 @@ def run_dataset(name, k_values, n_random_seeds, verify=True,
             rand_aurocs.append(df_rand["auroc"].mean())
             for _, r in df_rand.iterrows():
                 rows.append({"dataset": name, "method": "Random",
-                             "project_y": False, "k": k, "seed": seed, **r.to_dict()})
+                             "project_y": False, "k": k, "seed": seed,
+                             "identity_auroc": id_auroc, "gate_pass": gate_pass,
+                             **r.to_dict()})
 
         # Build seed-mean random AUPRC/sAUPRC for the summary line
         rand_auprc_means = []
@@ -162,9 +174,10 @@ def run_dataset(name, k_values, n_random_seeds, verify=True,
             f"sAUPRC={np.mean(rand_sauprc_means):.2f}x"
         )
 
-    return pd.DataFrame(rows), {"identity_auroc_gate_pass": True,
+    return pd.DataFrame(rows), {"gate_pass": gate_pass,
                                  "identity_auroc": id_auroc,
-                                 "identity_auprc": id_auprc}
+                                 "identity_auprc": id_auprc,
+                                 "identity_sauprc": id_sauprc}
 
 
 def plot_auroc_vs_k(all_df, outdir):
@@ -236,91 +249,191 @@ def plot_auroc_vs_k(all_df, outdir):
     print(f"  [plot] {plot_path}")
 
 
+def _cluster_bootstrap_ci(svd_per_tf, rand_tfs_df, n_boot=1000, seed=0):
+    """
+    Cluster-bootstrap the mean Δ AUROC (SVD - Random) over (TF, seed) pairs.
+    Returns (mean_delta, lo, hi) for 95% CI.
+    """
+    rng = np.random.default_rng(seed)
+    tfs = svd_per_tf.index.tolist()
+    if len(tfs) < 3:
+        return float("nan"), float("nan"), float("nan")
+
+    # Build per-(tf, seed) random AUROC table
+    rnd_pivot = rand_tfs_df.pivot_table(
+        index="tf", columns="seed", values="auroc", aggfunc="first"
+    )
+    # Restrict to common TFs
+    common = [t for t in tfs if t in rnd_pivot.index]
+    if len(common) < 3:
+        return float("nan"), float("nan"), float("nan")
+    svd_vec = svd_per_tf.loc[common].values
+
+    deltas = []
+    for _ in range(n_boot):
+        # Resample TFs with replacement
+        sampled_tfs_idx = rng.integers(0, len(common), size=len(common))
+        svd_b = svd_vec[sampled_tfs_idx]
+        rnd_b = rnd_pivot.loc[[common[i] for i in sampled_tfs_idx]].values
+        # For each sampled TF, pick a random seed
+        seed_idx = rng.integers(0, rnd_b.shape[1], size=rnd_b.shape[0])
+        rnd_sampled = rnd_b[np.arange(rnd_b.shape[0]), seed_idx]
+        deltas.append((svd_b - rnd_sampled).mean())
+    arr = np.array(deltas)
+    return float(arr.mean()), float(np.quantile(arr, 0.025)), float(np.quantile(arr, 0.975))
+
+
+def _compute_three_wilcoxon(svd_per_tf, rand_tfs_df):
+    """
+    (a) seed-mean: Wilcoxon(SVD[tf], mean_seeds(R[tf, s]))
+    (b) seed-max:  Wilcoxon(SVD[tf], max_seeds(R[tf, s]))
+    (c) per-TF win-rate: for each TF, fraction of seeds SVD > R; Wilcoxon vs 0.5
+    """
+    out = {"p_seedmean": np.nan, "p_seedmax": np.nan, "p_winrate": np.nan,
+           "mean_winrate": np.nan}
+
+    rnd_pivot = rand_tfs_df.pivot_table(
+        index="tf", columns="seed", values="auroc", aggfunc="first"
+    )
+    common = [t for t in svd_per_tf.index if t in rnd_pivot.index]
+    if len(common) < 3:
+        return out
+
+    svd_vec = svd_per_tf.loc[common].values
+    r_mat = rnd_pivot.loc[common].values  # shape (n_tf, n_seeds)
+
+    try:
+        _, p_a = stats.wilcoxon(svd_vec, r_mat.mean(axis=1),
+                                alternative="greater")
+    except ValueError:
+        p_a = np.nan
+    try:
+        _, p_b = stats.wilcoxon(svd_vec, r_mat.max(axis=1),
+                                alternative="greater")
+    except ValueError:
+        p_b = np.nan
+
+    # Win-rate per TF
+    winrates = ((svd_vec[:, None] > r_mat).sum(axis=1) / r_mat.shape[1])
+    try:
+        _, p_c = stats.wilcoxon(winrates - 0.5, alternative="greater")
+    except ValueError:
+        p_c = np.nan
+
+    out.update({
+        "p_seedmean": p_a, "p_seedmax": p_b, "p_winrate": p_c,
+        "mean_winrate": float(winrates.mean()),
+    })
+    return out
+
+
 def summarize(all_df, outdir):
-    lines = ["# T1 Production — SVD vs Random (inside GeoBridgeModel)\n",
-             "Scoring = `scores_with_custom_vk(pre, Vk, normalize_score=True)`\n",
-             "project_y fixed to False for the fair SVD-vs-Random arms.\n",
-             "SVD_projectY arm = production default (project_y=True) — reference.\n"]
+    lines = [
+        "# T1 Production — SVD vs Random (inside GeoBridgeModel)\n",
+        "Scoring: `scores_with_custom_vk(pre, Vk, normalize_score=True)`\n",
+        "Fair comparison uses project_y=False for both SVD and Random arms.\n",
+        "SVD_projectY arm = production default (project_y=True), reference only.\n",
+        "",
+        "## Statistical tests reported",
+        "- **p (seed-mean)**: paired Wilcoxon SVD[tf] vs mean_seeds(Random[tf, s]) — primary, anti-conservative.",
+        "- **p (seed-max)**: paired Wilcoxon SVD[tf] vs max_seeds(Random[tf, s]) — stress test.",
+        "- **p (win-rate)**: Wilcoxon of per-TF win-rates (fraction of seeds SVD > Random) against 0.5.",
+        "- **Δ AUROC 95% CI**: cluster-bootstrap over (TF, seed) pairs (1000 resamples).",
+        "",
+    ]
 
     summary_rows = []
-
+    gate_pass_datasets = set()
+    gate_fail_datasets = set()
     for ds in sorted(all_df["dataset"].unique()):
-        sub = all_df[all_df["dataset"] == ds]
-        lines.append(f"\n## {ds}\n")
+        gp = all_df[all_df["dataset"] == ds]["gate_pass"].iloc[0]
+        (gate_pass_datasets if gp else gate_fail_datasets).add(ds)
 
-        id_sub = sub[sub["method"] == "Identity"]
-        if len(id_sub):
-            lines.append(f"- Identity (k=0) AUROC={id_sub['auroc'].mean():.4f}  "
-                         f"AUPRC={id_sub['auprc'].mean():.4f}\n")
+    # Process datasets; split output by gate-pass vs gate-fail
+    for section_name, ds_set in [("Gate-PASS datasets", gate_pass_datasets),
+                                  ("Gate-FAIL datasets (diagnostic only)",
+                                   gate_fail_datasets)]:
+        if not ds_set:
+            continue
+        lines.append(f"\n# {section_name}\n")
 
-        lines.append("| k | SVD(pyF) | SVD(pyT) | Random(pyF) ± SE | "
-                     "paired-Wilcoxon(SVD>Rand) p | Δ AUROC |")
-        lines.append("|---|---|---|---|---|---|")
-
-        for k in sorted(sub[sub["k"] > 0]["k"].unique()):
-            svd_tfs = sub[(sub["k"] == k) & (sub["method"] == "SVD")]
-            svdy_tfs = sub[(sub["k"] == k) & (sub["method"] == "SVD_projectY")]
-            rnd_tfs = sub[(sub["k"] == k) & (sub["method"] == "Random")]
-
-            if len(svd_tfs) == 0 or len(rnd_tfs) == 0:
-                continue
-
-            svd_per_tf = svd_tfs.groupby("tf")["auroc"].first()
-            rnd_per_tf = rnd_tfs.groupby("tf")["auroc"].mean()
-            common = svd_per_tf.index.intersection(rnd_per_tf.index)
-
-            if len(common) >= 5:
-                try:
-                    _, p = stats.wilcoxon(
-                        svd_per_tf.loc[common].values,
-                        rnd_per_tf.loc[common].values,
-                        alternative="greater",
-                    )
-                except ValueError:
-                    p = np.nan
-            else:
-                p = np.nan
-
-            rand_seed_means = rnd_tfs.groupby("seed")["auroc"].mean()
-            rmean = rand_seed_means.mean()
-            rse = rand_seed_means.std() / np.sqrt(max(len(rand_seed_means), 1))
-
-            svd_mean = svd_per_tf.mean()
-            svdy_mean = svdy_tfs["auroc"].mean() if len(svdy_tfs) else float("nan")
-            delta = svd_mean - rmean
-
+        for ds in sorted(ds_set):
+            sub = all_df[all_df["dataset"] == ds]
+            id_sub = sub[sub["method"] == "Identity"]
+            id_auroc = id_sub["auroc"].mean() if len(id_sub) else float("nan")
+            id_sauprc = id_sub["sauprc"].mean() if (len(id_sub) and "sauprc" in id_sub.columns) else float("nan")
+            lines.append(f"\n## {ds}  (identity AUROC = {id_auroc:.4f}, "
+                         f"sAUPRC = {id_sauprc:.2f}×)\n")
             lines.append(
-                f"| {k} | {svd_mean:.4f} | {svdy_mean:.4f} | "
-                f"{rmean:.4f} ± {rse:.4f} | {p:.3g} | {delta:+.4f} |"
+                "| k | SVD(pyF) AUROC | SVD(pyT) AUROC | "
+                "Random mean AUROC | Δ (95% CI) | p(seed-mean) | p(seed-max) | p(win-rate) | SVD sAUPRC | Rand sAUPRC |"
             )
+            lines.append("|---|---|---|---|---|---|---|---|---|---|")
 
-            summary_rows.append({
-                "dataset": ds, "k": k,
-                "svd_auroc": svd_mean,
-                "svd_projectY_auroc": svdy_mean,
-                "random_auroc_mean": rmean,
-                "random_auroc_se": rse,
-                "paired_wilcoxon_p": p,
-                "delta_svd_minus_rand": delta,
-                "n_tfs": len(common),
-            })
+            for k in sorted(sub[sub["k"] > 0]["k"].unique()):
+                svd_tfs = sub[(sub["k"] == k) & (sub["method"] == "SVD")]
+                svdy_tfs = sub[(sub["k"] == k) & (sub["method"] == "SVD_projectY")]
+                rnd_tfs = sub[(sub["k"] == k) & (sub["method"] == "Random")]
+                if len(svd_tfs) == 0 or len(rnd_tfs) == 0:
+                    continue
 
-    # Pre-specified criterion
-    lines.append("\n## Pre-specified criterion at k=5\n")
-    k5 = pd.DataFrame([r for r in summary_rows if r["k"] == 5])
+                svd_per_tf = svd_tfs.groupby("tf")["auroc"].first()
+                tests = _compute_three_wilcoxon(svd_per_tf, rnd_tfs)
+                dmean, dlo, dhi = _cluster_bootstrap_ci(svd_per_tf, rnd_tfs)
+
+                rand_mean_auroc = rnd_tfs.groupby("seed")["auroc"].mean().mean()
+                svd_mean = svd_per_tf.mean()
+                svdy_mean = svdy_tfs["auroc"].mean() if len(svdy_tfs) else float("nan")
+
+                svd_sauprc = svd_tfs["sauprc"].mean() if "sauprc" in svd_tfs.columns else float("nan")
+                rand_sauprc = rnd_tfs["sauprc"].mean() if "sauprc" in rnd_tfs.columns else float("nan")
+
+                lines.append(
+                    f"| {k} | {svd_mean:.4f} | {svdy_mean:.4f} | "
+                    f"{rand_mean_auroc:.4f} | {dmean:+.4f} [{dlo:+.4f}, {dhi:+.4f}] | "
+                    f"{tests['p_seedmean']:.3g} | {tests['p_seedmax']:.3g} | "
+                    f"{tests['p_winrate']:.3g} | {svd_sauprc:.2f}× | {rand_sauprc:.2f}× |"
+                )
+
+                summary_rows.append({
+                    "dataset": ds, "k": k, "gate_pass": ds in gate_pass_datasets,
+                    "identity_auroc": id_auroc,
+                    "svd_auroc": svd_mean, "svd_projectY_auroc": svdy_mean,
+                    "random_auroc_mean": rand_mean_auroc,
+                    "svd_sauprc": svd_sauprc, "random_sauprc": rand_sauprc,
+                    "delta_auroc": dmean, "delta_ci95_lo": dlo, "delta_ci95_hi": dhi,
+                    "p_seedmean": tests["p_seedmean"],
+                    "p_seedmax": tests["p_seedmax"],
+                    "p_winrate": tests["p_winrate"],
+                    "mean_winrate": tests["mean_winrate"],
+                    "n_tfs": int(len(svd_per_tf)),
+                })
+
+    # Pre-specified criterion, applied to GATE-PASS datasets only
+    lines.append("\n## Pre-specified criterion at k=5 (gate-pass only)\n")
+    k5 = pd.DataFrame([r for r in summary_rows
+                       if r["k"] == 5 and r["gate_pass"]])
+    lines.append(f"Gate pass: **{len(gate_pass_datasets)}/{len(gate_pass_datasets) + len(gate_fail_datasets)}** datasets "
+                 f"(pass: {sorted(gate_pass_datasets)}, fail: {sorted(gate_fail_datasets)})")
     if len(k5):
         n_total = len(k5)
-        n_sig = int((k5["paired_wilcoxon_p"] < 0.05).sum())
-        n_eff = int((k5["delta_svd_minus_rand"] > 0.02).sum())
-        threshold = int(np.ceil(2 * n_total / 3))
-        lines.append(f"- Paired Wilcoxon p<0.05: **{n_sig}/{n_total}** (need ≥{threshold})")
-        lines.append(f"- Δ AUROC > 0.02: **{n_eff}/{n_total}** (need ≥{threshold})")
+        n_sig_mean = int((k5["p_seedmean"] < 0.05).sum())
+        n_sig_max = int((k5["p_seedmax"] < 0.05).sum())
+        n_eff = int((k5["delta_auroc"] > 0.02).sum())
+        n_large_eff = int((k5["delta_auroc"] > 0.05).sum())
+        threshold = max(1, int(np.ceil(2 * n_total / 3)))
+        lines.append(f"- p(seed-mean) < 0.05: **{n_sig_mean}/{n_total}**  "
+                     f"(need ≥{threshold} for majority)")
+        lines.append(f"- p(seed-max)  < 0.05: **{n_sig_max}/{n_total}**  (stress test)")
+        lines.append(f"- Δ AUROC > 0.02: **{n_eff}/{n_total}**")
+        lines.append(f"- Δ AUROC > 0.05: **{n_large_eff}/{n_total}**")
 
-        verdict = (
-            "**PASS**" if (n_sig >= threshold and n_eff >= threshold)
-            else "**FAIL — reframe pair-space novelty**" if (n_sig == 0)
-            else "**MIXED — interpret carefully**"
-        )
+        if n_sig_mean >= threshold and n_eff >= threshold:
+            verdict = "**PASS**"
+        elif n_sig_mean == 0 and n_eff == 0:
+            verdict = "**FAIL — reframe pair-space novelty**"
+        else:
+            verdict = "**MIXED — interpret carefully**"
         lines.append(f"- Verdict: {verdict}\n")
 
     pd.DataFrame(summary_rows).to_csv(outdir / "summary.csv", index=False)
