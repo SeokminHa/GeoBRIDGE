@@ -90,8 +90,10 @@ def run_dataset(name, k_values, n_random_seeds, verify=True,
                      "project_y": False, "k": 0, "seed": -1, **r.to_dict()})
     id_auroc = df0["auroc"].mean()
     id_auprc = df0["auprc"].mean()
-    print(f"  [k=0 Identity] n_TFs={len(df0)}  AUROC={id_auroc:.4f}  "
-          f"AUPRC={id_auprc:.4f}")
+    id_sauprc = df0["sauprc"].mean()
+    print(f"  [k=0 Identity] n_TFs={len(df0)}  "
+          f"AUROC={id_auroc:.4f}  AUPRC={id_auprc:.4f}  "
+          f"sAUPRC={id_sauprc:.2f}x baseline")
 
     # CRITICAL GATE: identity AUROC must be > 0.5 for the ablation to be
     # interpretable. If identity is anti-signal, SVD and Random are both
@@ -137,10 +139,28 @@ def run_dataset(name, k_values, n_random_seeds, verify=True,
                 rows.append({"dataset": name, "method": "Random",
                              "project_y": False, "k": k, "seed": seed, **r.to_dict()})
 
-        print(f"  k={k:3d}: "
-              f"SVD(pyF) {df_svd['auroc'].mean():.4f}  "
-              f"SVD(pyT) {df_svd_y['auroc'].mean():.4f}  "
-              f"Random(pyF) {np.mean(rand_aurocs):.4f} ± {np.std(rand_aurocs):.4f}")
+        # Build seed-mean random AUPRC/sAUPRC for the summary line
+        rand_auprc_means = []
+        rand_sauprc_means = []
+        for seed in range(n_random_seeds):
+            rseed_rows = [r for r in rows if r.get("seed") == seed
+                          and r.get("method") == "Random" and r.get("k") == k]
+            if rseed_rows:
+                rand_auprc_means.append(np.mean([r["auprc"] for r in rseed_rows]))
+                rand_sauprc_means.append(np.mean([r["sauprc"] for r in rseed_rows]))
+
+        print(
+            f"  k={k:3d}: "
+            f"SVD(pyF) AUROC={df_svd['auroc'].mean():.4f} "
+            f"AUPRC={df_svd['auprc'].mean():.4f} "
+            f"sAUPRC={df_svd['sauprc'].mean():.2f}x  |  "
+            f"SVD(pyT) AUROC={df_svd_y['auroc'].mean():.4f} "
+            f"AUPRC={df_svd_y['auprc'].mean():.4f} "
+            f"sAUPRC={df_svd_y['sauprc'].mean():.2f}x  |  "
+            f"Random(pyF) AUROC={np.mean(rand_aurocs):.4f}±{np.std(rand_aurocs):.4f} "
+            f"AUPRC={np.mean(rand_auprc_means):.4f} "
+            f"sAUPRC={np.mean(rand_sauprc_means):.2f}x"
+        )
 
     return pd.DataFrame(rows), {"identity_auroc_gate_pass": True,
                                  "identity_auroc": id_auroc,

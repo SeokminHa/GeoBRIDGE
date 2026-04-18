@@ -184,13 +184,17 @@ def evaluate_scores_per_tf(scores, gt_dict, gene_names, top_k_values=(10, 20, 50
         order = np.argsort(-s)
         n_pos = int(l.sum())
 
+        auprc_val = average_precision_score(l, s)
         row = {
             "tf": tf,
             "n_targets": n_pos,
             "n_candidates": int(len(l)),
             "auroc": roc_auc_score(l, s),
-            "auprc": average_precision_score(l, s),
+            "auprc": auprc_val,
             "baseline_auprc": baseline,
+            # sAUPRC (standardized AUPRC): AUPRC / baseline.
+            # Random expectation = 1; values > 1 indicate signal above baseline.
+            "sauprc": auprc_val / max(baseline, 1e-12),
         }
         # EPR: precision@n_pos / baseline (random expectation = 1)
         if n_pos > 0 and n_pos <= len(l):
