@@ -157,23 +157,36 @@ def precompute_pre(X, V, pt, pair_seed=42):
 
 def evaluate_scores_per_tf(scores, gt_dict, gene_names, top_k_values=(10, 20, 50)):
     """
-    Per-TF AUROC / AUPRC / EPR / top-K precision, plus signed-AUPRC metrics
-    when gt_dict carries sign information.
+    Per-TF metrics. Two families of AUPRC are reported:
+
+    (A) Standardized AUPRC (= AUPRC / baseline).
+        Column names: std_auprc, std_auprc_signed_pos, std_auprc_signed_neg.
+        Range: [0, 1/baseline]; 1 = random, >1 = signal. This is NOT signed;
+        it is the original AUPRC rescaled so TFs with different baseline
+        rates are comparable.
+
+    (B) Signed AUPRC (sign-aware evaluation).
+        Column names: auprc_signed_pos, auprc_signed_neg (+ AUROC equivalents).
+        These test whether the predicted regulation direction matches GT:
+          auprc_signed_pos -- positive edges vs non-edges (negative edges
+                              EXCLUDED from eval); predictor = +raw score.
+          auprc_signed_neg -- negative edges vs non-edges (positive edges
+                              EXCLUDED from eval); predictor = -raw score.
+          dir_acc          -- fraction of sign-labeled GT edges where
+                              sign(predicted score) == sign(GT sign).
 
     gt_dict accepted shapes:
       - {tf: set(target_names)}               -- unsigned (all +1)
       - {tf: {target_name: sign ∈ {-1,0,1}}}  -- signed
 
     Unsigned metrics (always computed, based on |score|):
-      auroc, auprc, sauprc (= AUPRC / baseline), epr, topk_precision_K.
+      auroc, auprc, std_auprc, epr, topk_precision_K.
 
-    Signed metrics (computed only when gt_dict has sign information):
-      auroc_signed_pos, auprc_signed_pos
-        -- positive edges vs rest-excluding-negatives; score = +signed_score.
-      auroc_signed_neg, auprc_signed_neg
-        -- negative edges vs rest-excluding-positives; score = -signed_score.
-      dir_acc
-        -- among GT edges with nonzero sign, fraction where sign(score) == sign(GT).
+    Signed metrics (computed only when gt_dict carries sign info AND both
+    positive and negative classes are non-empty after class-exclusion):
+      auroc_signed_pos, auprc_signed_pos, std_auprc_signed_pos
+      auroc_signed_neg, auprc_signed_neg, std_auprc_signed_neg
+      dir_acc, n_pos_edges, n_neg_edges
     """
     from sklearn.metrics import roc_auc_score, average_precision_score
     name_to_idx = {g: i for i, g in enumerate(gene_names)}
@@ -232,7 +245,7 @@ def evaluate_scores_per_tf(scores, gt_dict, gene_names, top_k_values=(10, 20, 50
             "auroc": roc_auc_score(l, mag_s),
             "auprc": auprc_val,
             "baseline_auprc": baseline,
-            "sauprc": auprc_val / max(baseline, 1e-12),
+            "std_auprc": auprc_val / max(baseline, 1e-12),
         }
         if n_pos > 0 and n_pos <= len(l):
             prec_at_npos = float(l[order[:n_pos]].mean())
@@ -256,7 +269,7 @@ def evaluate_scores_per_tf(scores, gt_dict, gene_names, top_k_values=(10, 20, 50
                 row["auroc_signed_pos"] = roc_auc_score(pos_labels, pos_scores)
                 row["auprc_signed_pos"] = average_precision_score(pos_labels, pos_scores)
                 pos_baseline = float(pos_labels.mean())
-                row["sauprc_signed_pos"] = (
+                row["std_auprc_signed_pos"] = (
                     row["auprc_signed_pos"] / max(pos_baseline, 1e-12)
                 )
 
@@ -269,7 +282,7 @@ def evaluate_scores_per_tf(scores, gt_dict, gene_names, top_k_values=(10, 20, 50
                 row["auroc_signed_neg"] = roc_auc_score(neg_labels, neg_scores)
                 row["auprc_signed_neg"] = average_precision_score(neg_labels, neg_scores)
                 neg_baseline = float(neg_labels.mean())
-                row["sauprc_signed_neg"] = (
+                row["std_auprc_signed_neg"] = (
                     row["auprc_signed_neg"] / max(neg_baseline, 1e-12)
                 )
 

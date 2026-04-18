@@ -21,7 +21,7 @@ Approach:
     3. For each velocity variant {precomputed if present, scVelo stochastic,
        scVelo deterministic, (optional) scVelo dynamical} run production GB
        at k=0 (identity) and k=5.
-    4. Report AUROC/AUPRC/sAUPRC + gate_pass flag (identity AUROC > 0.5).
+    4. Report AUROC/AUPRC/stdAUPRC + gate_pass flag (identity AUROC > 0.5).
 
 This isolates whether the weak/anti-signal on SERGIO A/B/D in the earlier
 surrogate ablation is due to velocity estimation rather than projection
@@ -140,7 +140,7 @@ def run_gb_identity_and_k5(X, V, pt, gene_names, gt_dict, return_per_tf=False):
             "n_tfs": len(df),
             "auroc_mean": float(df["auroc"].mean()) if len(df) else float("nan"),
             "auprc_mean": float(df["auprc"].mean()) if len(df) else float("nan"),
-            "sauprc_mean": float(df["sauprc"].mean()) if (len(df) and "sauprc" in df.columns) else float("nan"),
+            "std_auprc_mean": float(df["std_auprc"].mean()) if (len(df) and "std_auprc" in df.columns) else float("nan"),
             "baseline_auprc_mean": float(df["baseline_auprc"].mean()) if len(df) else float("nan"),
         }
     if return_per_tf:
@@ -218,9 +218,9 @@ def diagnose(name, no_dynamical=False, save_per_tf_dir=None):
                 )
         print(f"  [{vel_name}] gate_pass={gate_pass}  "
               f"k=0 AUROC={summary[0]['auroc_mean']:.4f} "
-              f"sAUPRC={summary[0]['sauprc_mean']:.2f}×  |  "
+              f"stdAUPRC={summary[0]['std_auprc_mean']:.2f}×  |  "
               f"k=5 AUROC={summary[5]['auroc_mean']:.4f} "
-              f"sAUPRC={summary[5]['sauprc_mean']:.2f}×")
+              f"stdAUPRC={summary[5]['std_auprc_mean']:.2f}×")
 
     # Variant 0: precomputed velocity (single, clean check)
     if has_precomputed_velocity:
@@ -286,14 +286,14 @@ def main():
         full = pd.concat(frames, ignore_index=True)
         full.to_csv(OUTDIR / "all_velocity_diag.csv", index=False)
 
-        # Report with gate_pass + sAUPRC columns
+        # Report with gate_pass + stdAUPRC columns
         lines = ["# SERGIO velocity provenance diagnostic\n"]
         lines.append(
             "X and pseudotime are held fixed per dataset; only V changes.\n"
         )
         lines.append(
             "| dataset | velocity | pseudotime | k | n_TFs | "
-            "AUROC | AUPRC | sAUPRC | baseline AUPRC | gate_pass |"
+            "AUROC | AUPRC | stdAUPRC | baseline AUPRC | gate_pass |"
         )
         lines.append("|---|---|---|---|---|---|---|---|---|---|")
         for _, r in full.iterrows():
@@ -302,7 +302,7 @@ def main():
                 f"{r.get('pseudotime_source', '?')} | {r['k']} | "
                 f"{r['n_tfs']} | {r['auroc_mean']:.4f} | "
                 f"{r['auprc_mean']:.4f} | "
-                f"{r.get('sauprc_mean', float('nan')):.2f}× | "
+                f"{r.get('std_auprc_mean', float('nan')):.2f}× | "
                 f"{r['baseline_auprc_mean']:.4f} | "
                 f"{r.get('gate_pass', False)} |"
             )

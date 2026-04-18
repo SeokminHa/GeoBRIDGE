@@ -129,10 +129,10 @@ def run_dataset(name, k_values, n_random_seeds, verify=True,
                      "project_y": False, "k": 0, "seed": -1, **r.to_dict()})
     id_auroc = df0["auroc"].mean()
     id_auprc = df0["auprc"].mean()
-    id_sauprc = df0["sauprc"].mean()
+    id_std_auprc = df0["std_auprc"].mean()
     print(f"  [k=0 Identity] n_TFs={len(df0)}  "
           f"AUROC={id_auroc:.4f}  AUPRC={id_auprc:.4f}  "
-          f"sAUPRC={id_sauprc:.2f}x baseline")
+          f"stdAUPRC={id_std_auprc:.2f}x baseline")
 
     # FLAG (not filter): identity AUROC is saved and gate-pass is flagged
     # on every row. Downstream analysis decides whether to include.
@@ -190,33 +190,44 @@ def run_dataset(name, k_values, n_random_seeds, verify=True,
                              "identity_auroc": id_auroc, "gate_pass": gate_pass,
                              **r.to_dict()})
 
-        # Build seed-mean random AUPRC/sAUPRC for the summary line
+        # Build seed-mean random AUPRC/stdAUPRC for the summary line
         rand_auprc_means = []
-        rand_sauprc_means = []
+        rand_std_auprc_means = []
         for seed in range(n_random_seeds):
             rseed_rows = [r for r in rows if r.get("seed") == seed
                           and r.get("method") == "Random" and r.get("k") == k]
             if rseed_rows:
                 rand_auprc_means.append(np.mean([r["auprc"] for r in rseed_rows]))
-                rand_sauprc_means.append(np.mean([r["sauprc"] for r in rseed_rows]))
+                rand_std_auprc_means.append(np.mean([r["std_auprc"] for r in rseed_rows]))
+
+        def _fmt(df, col, fmt=".4f"):
+            if col in df.columns and not df[col].isna().all():
+                return format(df[col].mean(), fmt)
+            return "-"
 
         print(
-            f"  k={k:3d}: "
-            f"SVD(pyF) AUROC={df_svd['auroc'].mean():.4f} "
-            f"AUPRC={df_svd['auprc'].mean():.4f} "
-            f"sAUPRC={df_svd['sauprc'].mean():.2f}x  |  "
-            f"SVD(pyT) AUROC={df_svd_y['auroc'].mean():.4f} "
-            f"AUPRC={df_svd_y['auprc'].mean():.4f} "
-            f"sAUPRC={df_svd_y['sauprc'].mean():.2f}x  |  "
-            f"Random(pyF) AUROC={np.mean(rand_aurocs):.4f}±{np.std(rand_aurocs):.4f} "
-            f"AUPRC={np.mean(rand_auprc_means):.4f} "
-            f"sAUPRC={np.mean(rand_sauprc_means):.2f}x"
+            f"  k={k:3d}:\n"
+            f"    SVD(pyF)    AUROC={df_svd['auroc'].mean():.4f}  "
+            f"AUPRC={df_svd['auprc'].mean():.4f}  "
+            f"stdAUPRC={df_svd['std_auprc'].mean():.2f}x  |  "
+            f"signed_pos_AUPRC={_fmt(df_svd, 'auprc_signed_pos')}  "
+            f"signed_neg_AUPRC={_fmt(df_svd, 'auprc_signed_neg')}  "
+            f"dir_acc={_fmt(df_svd, 'dir_acc', '.3f')}\n"
+            f"    SVD(pyT)    AUROC={df_svd_y['auroc'].mean():.4f}  "
+            f"AUPRC={df_svd_y['auprc'].mean():.4f}  "
+            f"stdAUPRC={df_svd_y['std_auprc'].mean():.2f}x  |  "
+            f"signed_pos_AUPRC={_fmt(df_svd_y, 'auprc_signed_pos')}  "
+            f"signed_neg_AUPRC={_fmt(df_svd_y, 'auprc_signed_neg')}  "
+            f"dir_acc={_fmt(df_svd_y, 'dir_acc', '.3f')}\n"
+            f"    Random(pyF) AUROC={np.mean(rand_aurocs):.4f}±{np.std(rand_aurocs):.4f}  "
+            f"AUPRC={np.mean(rand_auprc_means):.4f}  "
+            f"stdAUPRC={np.mean(rand_std_auprc_means):.2f}x"
         )
 
     return pd.DataFrame(rows), {"gate_pass": gate_pass,
                                  "identity_auroc": id_auroc,
                                  "identity_auprc": id_auprc,
-                                 "identity_sauprc": id_sauprc}
+                                 "identity_std_auprc": id_std_auprc}
 
 
 def plot_auroc_vs_k(all_df, outdir):
@@ -288,10 +299,17 @@ def plot_auroc_vs_k(all_df, outdir):
     print(f"  [plot] {plot_path}")
 
 
-def _cluster_bootstrap_ci(svd_per_tf, rand_tfs_df, n_boot=1000, seed=0):
+def _tf_bootstrap_delta_ci(svd_per_tf, rand_tfs_df, n_boot=1000, seed=0):
     """
-    Cluster-bootstrap the mean Δ AUROC (SVD - Random) over (TF, seed) pairs.
-    Returns (mean_delta, lo, hi) for 95% CI.
+    Bootstrap a 95% CI for mean Δ AUROC (SVD - Random) by resampling TFs
+    with replacement, drawing ONE random-seed observation per sampled TF.
+
+    This is NOT a full joint (TF × seed) bootstrap; it captures TF-level
+    variability plus a single seed draw per TF. CI is narrower than a full
+    joint bootstrap would give. Use for directional evidence, not precise
+    coverage claims.
+
+    Returns (mean_delta, lo, hi).
     """
     rng = np.random.default_rng(seed)
     tfs = svd_per_tf.index.tolist()
@@ -373,11 +391,23 @@ def summarize(all_df, outdir):
         "Fair comparison uses project_y=False for both SVD and Random arms.\n",
         "SVD_projectY arm = production default (project_y=True), reference only.\n",
         "",
+        "## Column definitions",
+        "- **stdAUPRC**: AUPRC / baseline_AUPRC (standardized; NOT sign-aware).",
+        "- **signed_pos_AUPRC**: AUPRC using signed scores, positive edges as "
+        "positive class, negative edges EXCLUDED, non-edges as negative class.",
+        "- **signed_neg_AUPRC**: AUPRC using negated signed scores, negative "
+        "edges as positive class, positive edges EXCLUDED, non-edges as "
+        "negative class.",
+        "- **dir_acc**: among sign-labeled GT edges, fraction where "
+        "sign(score) == sign(GT).",
+        "",
         "## Statistical tests reported",
         "- **p (seed-mean)**: paired Wilcoxon SVD[tf] vs mean_seeds(Random[tf, s]) — primary, anti-conservative.",
         "- **p (seed-max)**: paired Wilcoxon SVD[tf] vs max_seeds(Random[tf, s]) — stress test.",
         "- **p (win-rate)**: Wilcoxon of per-TF win-rates (fraction of seeds SVD > Random) against 0.5.",
-        "- **Δ AUROC 95% CI**: cluster-bootstrap over (TF, seed) pairs (1000 resamples).",
+        "- **Δ AUROC 95% CI**: TF-resample bootstrap with one random seed draw "
+        "per sampled TF (narrower than full joint (TF×seed) bootstrap; "
+        "directional evidence only).",
         "",
     ]
 
@@ -400,14 +430,16 @@ def summarize(all_df, outdir):
             sub = all_df[all_df["dataset"] == ds]
             id_sub = sub[sub["method"] == "Identity"]
             id_auroc = id_sub["auroc"].mean() if len(id_sub) else float("nan")
-            id_sauprc = id_sub["sauprc"].mean() if (len(id_sub) and "sauprc" in id_sub.columns) else float("nan")
+            id_std_auprc = id_sub["std_auprc"].mean() if (len(id_sub) and "std_auprc" in id_sub.columns) else float("nan")
             lines.append(f"\n## {ds}  (identity AUROC = {id_auroc:.4f}, "
-                         f"sAUPRC = {id_sauprc:.2f}×)\n")
+                         f"stdAUPRC = {id_std_auprc:.2f}×)\n")
             lines.append(
                 "| k | SVD(pyF) AUROC | SVD(pyT) AUROC | "
-                "Random mean AUROC | Δ (95% CI) | p(seed-mean) | p(seed-max) | p(win-rate) | SVD sAUPRC | Rand sAUPRC |"
+                "Random mean AUROC | Δ (95% CI) | p(seed-mean) | p(seed-max) | p(win-rate) | "
+                "SVD signed_pos_AUPRC | SVD signed_neg_AUPRC | SVD dir_acc | "
+                "SVD stdAUPRC | Rand stdAUPRC |"
             )
-            lines.append("|---|---|---|---|---|---|---|---|---|---|")
+            lines.append("|" + "---|" * 13)
 
             for k in sorted(sub[sub["k"] > 0]["k"].unique()):
                 svd_tfs = sub[(sub["k"] == k) & (sub["method"] == "SVD")]
@@ -418,20 +450,34 @@ def summarize(all_df, outdir):
 
                 svd_per_tf = svd_tfs.groupby("tf")["auroc"].first()
                 tests = _compute_three_wilcoxon(svd_per_tf, rnd_tfs)
-                dmean, dlo, dhi = _cluster_bootstrap_ci(svd_per_tf, rnd_tfs)
+                dmean, dlo, dhi = _tf_bootstrap_delta_ci(svd_per_tf, rnd_tfs)
 
                 rand_mean_auroc = rnd_tfs.groupby("seed")["auroc"].mean().mean()
                 svd_mean = svd_per_tf.mean()
                 svdy_mean = svdy_tfs["auroc"].mean() if len(svdy_tfs) else float("nan")
 
-                svd_sauprc = svd_tfs["sauprc"].mean() if "sauprc" in svd_tfs.columns else float("nan")
-                rand_sauprc = rnd_tfs["sauprc"].mean() if "sauprc" in rnd_tfs.columns else float("nan")
+                svd_std_auprc = svd_tfs["std_auprc"].mean() if "std_auprc" in svd_tfs.columns else float("nan")
+                rand_std_auprc = rnd_tfs["std_auprc"].mean() if "std_auprc" in rnd_tfs.columns else float("nan")
+
+                def _mean_or_nan(df, col):
+                    if col in df.columns and not df[col].isna().all():
+                        return df[col].mean()
+                    return float("nan")
+
+                svd_ap_pos = _mean_or_nan(svd_tfs, "auprc_signed_pos")
+                svd_ap_neg = _mean_or_nan(svd_tfs, "auprc_signed_neg")
+                svd_dir    = _mean_or_nan(svd_tfs, "dir_acc")
+
+                def _fmtf(v, fmt=".4f"):
+                    return format(v, fmt) if not np.isnan(v) else "-"
 
                 lines.append(
                     f"| {k} | {svd_mean:.4f} | {svdy_mean:.4f} | "
                     f"{rand_mean_auroc:.4f} | {dmean:+.4f} [{dlo:+.4f}, {dhi:+.4f}] | "
                     f"{tests['p_seedmean']:.3g} | {tests['p_seedmax']:.3g} | "
-                    f"{tests['p_winrate']:.3g} | {svd_sauprc:.2f}× | {rand_sauprc:.2f}× |"
+                    f"{tests['p_winrate']:.3g} | "
+                    f"{_fmtf(svd_ap_pos)} | {_fmtf(svd_ap_neg)} | {_fmtf(svd_dir, '.3f')} | "
+                    f"{svd_std_auprc:.2f}× | {rand_std_auprc:.2f}× |"
                 )
 
                 summary_rows.append({
@@ -439,7 +485,10 @@ def summarize(all_df, outdir):
                     "identity_auroc": id_auroc,
                     "svd_auroc": svd_mean, "svd_projectY_auroc": svdy_mean,
                     "random_auroc_mean": rand_mean_auroc,
-                    "svd_sauprc": svd_sauprc, "random_sauprc": rand_sauprc,
+                    "svd_std_auprc": svd_std_auprc, "random_std_auprc": rand_std_auprc,
+                    "svd_auprc_signed_pos": svd_ap_pos,
+                    "svd_auprc_signed_neg": svd_ap_neg,
+                    "svd_dir_acc": svd_dir,
                     "delta_auroc": dmean, "delta_ci95_lo": dlo, "delta_ci95_hi": dhi,
                     "p_seedmean": tests["p_seedmean"],
                     "p_seedmax": tests["p_seedmax"],
