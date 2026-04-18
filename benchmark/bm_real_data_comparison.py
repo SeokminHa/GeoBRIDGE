@@ -203,6 +203,153 @@ def _build_ground_truth(net, gene_names, min_targets=MIN_TARGETS_PER_TF,
     return gt_dict
 
 
+def _build_signed_ground_truth(net, gene_names, min_targets=MIN_TARGETS_PER_TF,
+                                uppercase_match=False, sign_col=None):
+    """
+    Signed ground truth: {tf: {target: sign}} where sign ∈ {+1, -1, 0}.
+
+    `sign_col` auto-detected if None: tries 'sign_decision', 'sign', 'weight',
+    'mor'.  If no sign info in `net`, all edges default to +1 (unsigned).
+
+    If multiple edges exist for same (source, target), sign is majority vote
+    (or 0 if tied).
+    """
+    # Detect sign column
+    candidate_cols = ["sign_decision", "sign", "mor", "weight"]
+    if sign_col is None:
+        for c in candidate_cols:
+            if c in net.columns:
+                sign_col = c
+                break
+
+    def _to_sign(v):
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return 0
+        if v > 0:
+            return 1
+        if v < 0:
+            return -1
+        return 0
+
+    if uppercase_match:
+        name_upper_to_orig = {g.upper(): g for g in gene_names}
+        gene_set = set(name_upper_to_orig.keys())
+    else:
+        gene_set = set(gene_names)
+        name_upper_to_orig = {g: g for g in gene_names}
+
+    net_filtered = net[
+        net["source"].isin(gene_set) & net["target"].isin(gene_set)
+    ].copy()
+    if sign_col is not None:
+        net_filtered["_sign"] = net_filtered[sign_col].apply(_to_sign)
+    else:
+        net_filtered["_sign"] = 1  # unsigned → default positive
+
+    gt_dict = {}
+    n_pos_edges = 0
+    n_neg_edges = 0
+    n_zero_edges = 0
+    for tf, grp in net_filtered.groupby("source"):
+        # Collapse duplicate (source, target) pairs: majority sign (0 if tie)
+        tgt_to_sign = {}
+        for tgt, tg_grp in grp.groupby("target"):
+            signs = tg_grp["_sign"].values
+            n_pos = int((signs > 0).sum())
+            n_neg = int((signs < 0).sum())
+            if n_pos > n_neg:
+                tgt_to_sign[tgt] = 1
+            elif n_neg > n_pos:
+                tgt_to_sign[tgt] = -1
+            else:
+                tgt_to_sign[tgt] = 0
+
+        # Map uppercase matching back to original-case
+        tf_orig = name_upper_to_orig.get(tf)
+        if tf_orig is None:
+            continue
+        signed_targets = {}
+        for t, s in tgt_to_sign.items():
+            t_orig = name_upper_to_orig.get(t)
+            if t_orig is None or t_orig == tf_orig:
+                continue
+            signed_targets[t_orig] = int(s)
+
+        if len(signed_targets) >= min_targets:
+            gt_dict[tf_orig] = signed_targets
+            for s in signed_targets.values():
+                if s > 0: n_pos_edges += 1
+                elif s < 0: n_neg_edges += 1
+                else: n_zero_edges += 1
+
+    print(f"  signed GT: {len(gt_dict)} TFs, edges +{n_pos_edges} / -{n_neg_edges}"
+          f" / 0-sign {n_zero_edges}  (sign_col='{sign_col}')"
+          f"{' uppercase' if uppercase_match else ''}")
+    return gt_dict
+
+
+def _load_sergio_signed_gt(gene_names, gt_csv_path, min_targets=MIN_TARGETS_PER_TF):
+    """
+    SERGIO ground truth loader with sign auto-detection.
+
+    gt_GRN.csv may be 2-column (reg, tgt) — unsigned, all signs defaulted to +1,
+    or 3+ column with a sign-indicative column (e.g., third column could be
+    weight/sign). Auto-detects.
+    """
+    head = pd.read_csv(gt_csv_path, nrows=5)
+    n_cols = head.shape[1]
+    if n_cols == 2:
+        edges = pd.read_csv(gt_csv_path, header=None, names=["reg", "tgt"])
+        edges["sign"] = 1
+        print(f"  [SERGIO GT] 2-column (reg, tgt); all signs defaulted to +1")
+    else:
+        edges = pd.read_csv(gt_csv_path, header=None)
+        edges.columns = (["reg", "tgt"] +
+                         [f"col{i}" for i in range(2, n_cols)])
+        # Try to find a sign-like column in extras
+        sign_col_idx = None
+        for i in range(2, n_cols):
+            col = edges[f"col{i}"]
+            if pd.api.types.is_numeric_dtype(col) and ((col < 0).any() or (col > 0).any()):
+                sign_col_idx = i
+                break
+        if sign_col_idx is not None:
+            edges["sign"] = edges[f"col{sign_col_idx}"].apply(
+                lambda v: 1 if v > 0 else (-1 if v < 0 else 0),
+            )
+            print(f"  [SERGIO GT] {n_cols}-column; sign from col{sign_col_idx}")
+        else:
+            edges["sign"] = 1
+            print(f"  [SERGIO GT] {n_cols}-column but no sign-like col; defaulted to +1")
+
+    # Build {tf: {target: sign}}
+    gt = {}
+    for _, r in edges.iterrows():
+        reg_s = str(int(r["reg"]))
+        tgt_s = str(int(r["tgt"]))
+        s = int(r["sign"])
+        gt.setdefault(reg_s, {})[tgt_s] = s
+
+    # Filter to genes in dataset
+    gene_set = set(gene_names)
+    filtered = {}
+    for tf, targets_signs in gt.items():
+        if tf not in gene_set:
+            continue
+        valid = {t: s for t, s in targets_signs.items()
+                 if t in gene_set and t != tf}
+        if len(valid) >= min_targets:
+            filtered[tf] = valid
+
+    n_pos = sum(1 for ts in filtered.values() for s in ts.values() if s > 0)
+    n_neg = sum(1 for ts in filtered.values() for s in ts.values() if s < 0)
+    n_zero = sum(1 for ts in filtered.values() for s in ts.values() if s == 0)
+    print(f"  signed GT: {len(filtered)} TFs, edges +{n_pos} / -{n_neg} / 0 {n_zero}")
+    return filtered
+
+
 def prepare_bonemarrow():
     """Prepare bone marrow dataset for both methods."""
     print("\n" + "=" * 70)

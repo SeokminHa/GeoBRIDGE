@@ -63,12 +63,51 @@ K_VALUES_DEFAULT = [1, 3, 5, 10, 20, 50]
 N_RANDOM_SEEDS_DEFAULT = 10
 
 
+def _build_signed_gt_for_dataset(name, gene_names, unsigned_gt):
+    """
+    Return a signed gt_dict {tf: {target: sign}} for this dataset.
+    Falls back to {tf: {target: 1}} when sign info is unavailable.
+    """
+    from benchmark.utils import SERGIO_BASE, SERGIO_DATASETS, DATASET_ORGANISM
+    from benchmark.bm_real_data_comparison import (
+        _load_collectri_regulons, _build_signed_ground_truth,
+        _load_sergio_signed_gt,
+    )
+
+    if name in SERGIO_DATASETS:
+        gt_csv = SERGIO_BASE / "gt_GRN.csv"
+        if gt_csv.exists():
+            try:
+                return _load_sergio_signed_gt(gene_names, gt_csv)
+            except Exception as e:
+                print(f"  [WARN] signed SERGIO GT fallback to unsigned: {e}")
+        # fallback: wrap unsigned into all-+1
+        return {tf: {t: 1 for t in tgts} for tf, tgts in unsigned_gt.items()}
+
+    # Real (bonemarrow / pancreas)
+    organism = DATASET_ORGANISM.get(name, "human")
+    uppercase = (organism == "mouse")
+    try:
+        net = _load_collectri_regulons(organism=organism)
+        return _build_signed_ground_truth(
+            net, gene_names, uppercase_match=uppercase,
+        )
+    except Exception as e:
+        print(f"  [WARN] signed CollecTRI GT fallback to unsigned: {e}")
+        return {tf: {t: 1 for t in tgts} for tf, tgts in unsigned_gt.items()}
+
+
 def run_dataset(name, k_values, n_random_seeds, verify=True,
-                allow_antisignal_identity=False):
+                allow_antisignal_identity=False, use_signed_gt=True):
     print(f"\n=== {name} ===")
-    X, V, pt, gene_names, gt_dict = load_for_production(name)
+    X, V, pt, gene_names, gt_unsigned = load_for_production(name)
+    if use_signed_gt:
+        gt_dict = _build_signed_gt_for_dataset(name, gene_names, gt_unsigned)
+    else:
+        gt_dict = gt_unsigned
     G = len(gene_names)
-    print(f"  G={G}  cells={X.shape[0]}  TFs(GT)={len(gt_dict)}")
+    print(f"  G={G}  cells={X.shape[0]}  TFs(GT)={len(gt_dict)}  "
+          f"signed={use_signed_gt}")
 
     # Production streaming stats
     t0 = time.perf_counter()
@@ -451,6 +490,10 @@ def main():
     ap.add_argument("--allow-antisignal-identity", action="store_true",
                     help="Proceed even if k=0 identity AUROC < 0.5 (ablation "
                          "results will be flagged as uninterpretable)")
+    ap.add_argument("--no-signed-gt", action="store_true",
+                    help="Disable signed GT (use unsigned only). Signed GT is "
+                         "default and uses CollecTRI sign_decision (real) or "
+                         "SERGIO sign column if available (else all-positive).")
     args = ap.parse_args()
 
     OUTDIR.mkdir(parents=True, exist_ok=True)
@@ -460,7 +503,8 @@ def main():
         try:
             df, gate = run_dataset(ds, args.k_values, args.n_random_seeds,
                                     verify=not args.skip_verify,
-                                    allow_antisignal_identity=args.allow_antisignal_identity)
+                                    allow_antisignal_identity=args.allow_antisignal_identity,
+                                    use_signed_gt=not args.no_signed_gt)
             gates[ds] = gate
             if len(df) > 0:
                 df.to_csv(OUTDIR / f"{ds}_ablation.csv", index=False)

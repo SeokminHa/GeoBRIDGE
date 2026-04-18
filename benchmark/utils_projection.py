@@ -157,12 +157,34 @@ def precompute_pre(X, V, pt, pair_seed=42):
 
 def evaluate_scores_per_tf(scores, gt_dict, gene_names, top_k_values=(10, 20, 50)):
     """
-    Per-TF AUROC / AUPRC / EPR / top-K precision of |scores[tf_idx, j]|.
+    Per-TF AUROC / AUPRC / EPR / top-K precision, plus signed-AUPRC metrics
+    when gt_dict carries sign information.
+
+    gt_dict accepted shapes:
+      - {tf: set(target_names)}               -- unsigned (all +1)
+      - {tf: {target_name: sign ∈ {-1,0,1}}}  -- signed
+
+    Unsigned metrics (always computed, based on |score|):
+      auroc, auprc, sauprc (= AUPRC / baseline), epr, topk_precision_K.
+
+    Signed metrics (computed only when gt_dict has sign information):
+      auroc_signed_pos, auprc_signed_pos
+        -- positive edges vs rest-excluding-negatives; score = +signed_score.
+      auroc_signed_neg, auprc_signed_neg
+        -- negative edges vs rest-excluding-positives; score = -signed_score.
+      dir_acc
+        -- among GT edges with nonzero sign, fraction where sign(score) == sign(GT).
     """
     from sklearn.metrics import roc_auc_score, average_precision_score
     name_to_idx = {g: i for i, g in enumerate(gene_names)}
     rows = []
     for tf, targets in gt_dict.items():
+        # Accept both unsigned (set) and signed (dict)
+        if isinstance(targets, dict):
+            signed_targets = targets
+        else:
+            signed_targets = {t: 1 for t in targets}
+
         tf_idx = None
         for cand in (tf, tf.title(), tf.upper(), tf.lower()):
             if cand in name_to_idx:
@@ -170,39 +192,97 @@ def evaluate_scores_per_tf(scores, gt_dict, gene_names, top_k_values=(10, 20, 50
                 break
         if tf_idx is None:
             continue
-        s, l = [], []
+
+        # Build three parallel arrays over candidate genes (excluding TF itself)
+        signed_s, mag_s, l, sign_l = [], [], [], []
         for j, g in enumerate(gene_names):
             if j == tf_idx:
                 continue
-            s.append(float(abs(scores[tf_idx, j])))
-            l.append(1 if (g in targets or g.upper() in targets) else 0)
-        s = np.asarray(s); l = np.asarray(l)
+            raw = float(scores[tf_idx, j])
+            signed_s.append(raw)
+            mag_s.append(abs(raw))
+            # Unsigned label: 1 if any-sign edge in GT
+            is_target = (g in signed_targets) or (g.upper() in signed_targets)
+            l.append(1 if is_target else 0)
+            # Signed label: +1 / -1 / 0 (non-edge = 0)
+            if g in signed_targets:
+                sign_l.append(signed_targets[g])
+            elif g.upper() in signed_targets:
+                sign_l.append(signed_targets[g.upper()])
+            else:
+                sign_l.append(0)
+
+        signed_s = np.asarray(signed_s)
+        mag_s = np.asarray(mag_s)
+        l = np.asarray(l)
+        sign_l = np.asarray(sign_l)
+
         if l.sum() == 0 or l.sum() == len(l):
             continue
 
         baseline = float(l.mean())
-        order = np.argsort(-s)
+        order = np.argsort(-mag_s)
         n_pos = int(l.sum())
 
-        auprc_val = average_precision_score(l, s)
+        auprc_val = average_precision_score(l, mag_s)
         row = {
             "tf": tf,
             "n_targets": n_pos,
             "n_candidates": int(len(l)),
-            "auroc": roc_auc_score(l, s),
+            "auroc": roc_auc_score(l, mag_s),
             "auprc": auprc_val,
             "baseline_auprc": baseline,
-            # sAUPRC (standardized AUPRC): AUPRC / baseline.
-            # Random expectation = 1; values > 1 indicate signal above baseline.
             "sauprc": auprc_val / max(baseline, 1e-12),
         }
-        # EPR: precision@n_pos / baseline (random expectation = 1)
         if n_pos > 0 and n_pos <= len(l):
             prec_at_npos = float(l[order[:n_pos]].mean())
             row["epr"] = prec_at_npos / max(baseline, 1e-12)
-        # Top-K precision
         for K in top_k_values:
             if K <= len(l):
                 row[f"topk_precision_{K}"] = float(l[order[:K]].mean())
+
+        # --- signed metrics (only if GT has sign information) ---
+        n_pos_edges = int((sign_l == 1).sum())
+        n_neg_edges = int((sign_l == -1).sum())
+        has_sign_info = (n_pos_edges + n_neg_edges) > 0
+
+        if has_sign_info:
+            # Positive-edge AUPRC: positive edges are positive class, negative
+            # edges EXCLUDED from eval (ambiguous), non-edges = negative class.
+            pos_mask = sign_l != -1  # keep non-edges + positive edges
+            pos_labels = (sign_l[pos_mask] == 1).astype(int)
+            pos_scores = signed_s[pos_mask]
+            if pos_labels.sum() > 0 and pos_labels.sum() < len(pos_labels):
+                row["auroc_signed_pos"] = roc_auc_score(pos_labels, pos_scores)
+                row["auprc_signed_pos"] = average_precision_score(pos_labels, pos_scores)
+                pos_baseline = float(pos_labels.mean())
+                row["sauprc_signed_pos"] = (
+                    row["auprc_signed_pos"] / max(pos_baseline, 1e-12)
+                )
+
+            # Negative-edge AUPRC: negative edges are positive class (with
+            # score = -signed_score so that expected direction is ↑).
+            neg_mask = sign_l != 1
+            neg_labels = (sign_l[neg_mask] == -1).astype(int)
+            neg_scores = -signed_s[neg_mask]
+            if neg_labels.sum() > 0 and neg_labels.sum() < len(neg_labels):
+                row["auroc_signed_neg"] = roc_auc_score(neg_labels, neg_scores)
+                row["auprc_signed_neg"] = average_precision_score(neg_labels, neg_scores)
+                neg_baseline = float(neg_labels.mean())
+                row["sauprc_signed_neg"] = (
+                    row["auprc_signed_neg"] / max(neg_baseline, 1e-12)
+                )
+
+            # Direction accuracy: fraction of signed GT edges where predicted
+            # sign matches GT sign (ignoring zero-sign GT entries).
+            nonzero_edge_mask = (sign_l == 1) | (sign_l == -1)
+            if nonzero_edge_mask.any():
+                sign_pred = np.sign(signed_s[nonzero_edge_mask])
+                sign_gt = sign_l[nonzero_edge_mask]
+                # Count pred==0 as wrong (no prediction)
+                row["dir_acc"] = float((sign_pred == sign_gt).mean())
+                row["n_pos_edges"] = n_pos_edges
+                row["n_neg_edges"] = n_neg_edges
+
         rows.append(row)
     return pd.DataFrame(rows)
