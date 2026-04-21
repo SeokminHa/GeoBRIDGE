@@ -27,18 +27,14 @@ def _resolve_geobridge():
     try:
         from geobridge_model.config import GeoBridgeConfig
         from geobridge_model.model import GeoBridgeModel
-        return GeoBridgeConfig, GeoBridgeModel
+        from geobridge_model.spectral_k import select_k_by_tail_exhaustion
+        return GeoBridgeConfig, GeoBridgeModel, select_k_by_tail_exhaustion
     except ImportError:
         _add_parent_to_sys_path()
-        try:
-            from geobridge_model.config import GeoBridgeConfig
-            from geobridge_model.model import GeoBridgeModel
-            return GeoBridgeConfig, GeoBridgeModel
-        except ImportError as e:
-            raise ImportError(
-                "geobridge_model not importable. Repo root (containing geobridge_model/) "
-                "must be on PYTHONPATH."
-            ) from e
+        from geobridge_model.config import GeoBridgeConfig
+        from geobridge_model.model import GeoBridgeModel
+        from geobridge_model.spectral_k import select_k_by_tail_exhaustion
+        return GeoBridgeConfig, GeoBridgeModel, select_k_by_tail_exhaustion
 
 
 def _get_pseudotime(adata) -> np.ndarray:
@@ -67,16 +63,14 @@ def run(
     layer_V: str = "velocity",
     **_,
 ) -> pd.DataFrame:
-    GeoBridgeConfig, GeoBridgeModel = _resolve_geobridge()
+    GeoBridgeConfig, GeoBridgeModel, select_k = _resolve_geobridge()
 
     X = np.asarray(adata.layers[layer_X] if layer_X in adata.layers else adata.X).astype(np.float64)
     V = np.asarray(adata.layers[layer_V]).astype(np.float64)
     pt = _get_pseudotime(adata)
 
-    # Sort cells by pseudotime so pair-forward windows work
     order = np.argsort(pt, kind="mergesort")
     X = X[order]; V = V[order]; pt = pt[order]
-    # Drop NaN velocity rows (scvelo can produce NaN for genes that failed; handle as zero)
     V = np.nan_to_num(V, nan=0.0, posinf=0.0, neginf=0.0)
     X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
 
@@ -90,9 +84,32 @@ def run(
         project_y=project_y,
         normalize_score=normalize_score,
     )
-    model = GeoBridgeModel(cfg)
-    result = model.fit(X, V, pt)
-    scores = np.asarray(result["scores"])  # (G, G)
+
+    # Streaming path: only keeps G×G stats, not (n_pairs × G) matrices.
+    # Necessary for moderate-size datasets (n_cells * G > few GB).
+    pre = GeoBridgeModel.precompute_pairspace_stats_streaming(
+        X, V, pt,
+        min_forward_dt=cfg.min_forward_dt,
+        max_forward_dt=cfg.max_forward_dt,
+        max_pairs_per_cell=cfg.max_pairs_per_cell,
+        pair_seed=cfg.pair_seed,
+        stream_num_threads=cfg.stream_num_threads,
+    )
+    spectral = select_k(
+        pre["S"],
+        cfg.max_k,
+        cfg.tail_fraction,
+        cfg.tail_min_start,
+        cfg.slope_window,
+        cfg.stable_m,
+        cfg.tau,
+    )
+    k = int(spectral.k_selected)
+    print(f"[geobridge] n_pairs={pre['n_pairs']:,}  G={pre['G']}  k_selected={k}")
+    scores = GeoBridgeModel.scores_from_streaming_stats(
+        pre, k=k, project_y=cfg.project_y, normalize_score=cfg.normalize_score, eps=cfg.eps
+    )
+    scores = np.asarray(scores)
 
     genes = adata.var_names.tolist()
     G = len(genes)
