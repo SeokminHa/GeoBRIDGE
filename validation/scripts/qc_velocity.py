@@ -36,9 +36,9 @@ def main():
         adata = sc.read(cfg["h5ad"])
 
     n_hvg = cfg.get("n_hvg", 3000)
-    scv.pp.filter_genes(adata, min_shared_counts=20)
-    scv.pp.normalize_per_cell(adata)
-    scv.pp.log1p(adata)
+    # scvelo 0.3.x filter_and_normalize does: filter_genes + normalize_per_cell + log1p
+    # on X, spliced, unspliced. Do NOT pass n_top_genes (signature bug in 0.3.4).
+    scv.pp.filter_and_normalize(adata, min_shared_counts=20)
     sc.pp.highly_variable_genes(adata, n_top_genes=n_hvg, flavor="seurat")
     adata = adata[:, adata.var["highly_variable"]].copy()
     scv.pp.moments(adata, n_pcs=30, n_neighbors=30)

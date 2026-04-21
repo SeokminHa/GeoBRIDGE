@@ -31,7 +31,9 @@ def main():
     # meta = pd.read_csv("data/raw/wessels/sgrna_per_cell.csv")
     # adata.obs = adata.obs.merge(meta.set_index("barcode"), left_index=True, right_index=True, how="left")
 
-    scv.pp.filter_and_normalize(adata, min_shared_counts=20, n_top_genes=cfg.get("n_hvg", 3000))
+    scv.pp.filter_and_normalize(adata, min_shared_counts=20)
+    sc.pp.highly_variable_genes(adata, n_top_genes=cfg.get("n_hvg", 3000), flavor="seurat")
+    adata = adata[:, adata.var["highly_variable"]].copy()
     scv.pp.moments(adata, n_pcs=30, n_neighbors=30)
     scv.tl.velocity(adata, mode="stochastic")
     scv.tl.velocity_graph(adata)
