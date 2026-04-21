@@ -56,7 +56,14 @@ def _fetch_collectri(organism: str) -> pd.DataFrame:
 
 def download_collectri(out_human: Path, out_mouse: Path) -> None:
     net_h = _fetch_collectri("human")
-    net_m = _fetch_collectri("mouse")
+    try:
+        net_m = _fetch_collectri("mouse")
+    except Exception as e:
+        print(f"[collectri] mouse fetch failed ({e}); deriving from human by capitalizing symbols")
+        net_m = net_h.copy()
+        for col in ("source", "target"):
+            if col in net_m.columns:
+                net_m[col] = net_m[col].astype(str).str.capitalize()
 
     def _to_tsv(net: pd.DataFrame, path: Path) -> None:
         net = net.rename(columns={"source": "tf"})
