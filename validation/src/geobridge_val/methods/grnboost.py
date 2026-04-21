@@ -1,10 +1,9 @@
-"""GRNBoost2 via arboreto with an explicit LocalCluster (dask 2024+ workaround)."""
-from __future__ import annotations
-import os
-os.environ.setdefault("DASK_DATAFRAME__QUERY_PLANNING", "False")
-import dask
-dask.config.set({"dataframe.query-planning": False})
+"""GRNBoost2 via arboreto with an explicit LocalCluster.
 
+Note: arboreto requires dask <2025 (needs legacy dask.dataframe API). Install with:
+  pip install "dask<2025" "distributed<2025"
+"""
+from __future__ import annotations
 import numpy as np
 import pandas as pd
 from scipy.sparse import issparse
