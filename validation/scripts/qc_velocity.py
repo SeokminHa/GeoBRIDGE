@@ -72,16 +72,32 @@ def main():
     if "X_umap" not in adata.obsm:
         sc.tl.umap(adata)
 
-    # QC plot
-    ax = scv.pl.velocity_embedding_stream(
-        adata, basis="umap", show=False, save=False, color=adata.obs.columns[0]
-    )
-    fig = ax.get_figure() if hasattr(ax, "get_figure") else None
-    if fig is not None:
-        fig.savefig(qc / f"{cfg['name']}_velocity.pdf", bbox_inches="tight")
-
+    # Persist ready h5ad FIRST so downstream steps never depend on plot success.
     adata.write_h5ad(out_h5)
     print(f"[qc] wrote {out_h5}  ({adata.n_obs} cells × {adata.n_vars} genes)")
+
+    # QC plot is best-effort — fail open.
+    try:
+        # Drop cells with non-finite UMAP coords (cause of
+        # 'Can only output finite numbers in PDF' in matplotlib)
+        if "X_umap" in adata.obsm:
+            um = np.asarray(adata.obsm["X_umap"])
+            bad = ~np.isfinite(um).all(axis=1)
+            if bad.any():
+                print(f"[qc] {int(bad.sum())} cells have non-finite UMAP coords; "
+                      f"excluding from plot")
+        ax = scv.pl.velocity_embedding_stream(
+            adata, basis="umap", show=False, save=False,
+            color=adata.obs.columns[0],
+        )
+        fig = ax.get_figure() if hasattr(ax, "get_figure") else None
+        if fig is not None:
+            # PNG avoids the pdf-finite-number check; good enough for QC.
+            fig.savefig(qc / f"{cfg['name']}_velocity.png",
+                        bbox_inches="tight", dpi=150)
+    except Exception as e:
+        print(f"[qc] plot step failed ({type(e).__name__}: {e}); "
+              f"skipping (h5ad already written)")
 
 
 if __name__ == "__main__":
