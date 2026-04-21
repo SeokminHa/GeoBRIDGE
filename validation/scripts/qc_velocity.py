@@ -7,8 +7,35 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import yaml
+import numpy as np
+import scipy.sparse as sp
 import scanpy as sc
 import scvelo as scv
+
+
+def _sanitize_and_hvg(adata, n_top: int):
+    """Replace inf/nan in X (from zero-count cells) and pick top-variance genes."""
+    X = adata.X
+    if sp.issparse(X):
+        mask = ~np.isfinite(X.data)
+        if mask.any():
+            print(f"[qc] zeroing {int(mask.sum())} non-finite entries in X")
+            X.data[mask] = 0
+        mean = np.asarray(X.mean(axis=0)).ravel()
+        sq = np.asarray(X.multiply(X).mean(axis=0)).ravel()
+        var = np.clip(sq - mean ** 2, 0, None)
+    else:
+        bad = ~np.isfinite(X)
+        if bad.any():
+            print(f"[qc] zeroing {int(bad.sum())} non-finite entries in X")
+            X[bad] = 0
+        var = np.nanvar(np.asarray(X), axis=0)
+    var = np.where(np.isfinite(var), var, 0.0)
+    n_keep = min(n_top, var.size)
+    top = np.argsort(-var)[:n_keep]
+    keep = np.zeros(var.size, dtype=bool); keep[top] = True
+    adata._inplace_subset_var(keep)
+    print(f"[qc] kept {keep.sum()} HVGs by variance")
 
 
 LOADERS = {
@@ -36,11 +63,9 @@ def main():
         adata = sc.read(cfg["h5ad"])
 
     n_hvg = cfg.get("n_hvg", 3000)
-    # scvelo 0.3.x filter_and_normalize does: filter_genes + normalize_per_cell + log1p
-    # on X, spliced, unspliced. Do NOT pass n_top_genes (signature bug in 0.3.4).
+    sc.pp.filter_cells(adata, min_counts=200)
     scv.pp.filter_and_normalize(adata, min_shared_counts=20)
-    sc.pp.highly_variable_genes(adata, n_top_genes=n_hvg, flavor="seurat")
-    adata = adata[:, adata.var["highly_variable"]].copy()
+    _sanitize_and_hvg(adata, n_hvg)
     scv.pp.moments(adata, n_pcs=30, n_neighbors=30)
     scv.tl.velocity(adata, mode="stochastic")
     scv.tl.velocity_graph(adata)
