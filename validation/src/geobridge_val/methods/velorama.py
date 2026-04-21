@@ -9,6 +9,7 @@ Output: {save_dir}/{name}.{dynamics}.velorama.interactions.tsv
 """
 from __future__ import annotations
 import subprocess
+import sys
 import tempfile
 import shutil
 from pathlib import Path
@@ -24,7 +25,7 @@ def run(
     hidden: int = 32,
     device: str = "cuda",
     dataset_name: str = "bm",
-    timeout_sec: int = 7200,
+    timeout_sec: int = 21600,  # 6h default; BM full 3000 HVGs needs ~3-5h
     **_,
 ) -> pd.DataFrame:
     if shutil.which("velorama") is None:
@@ -61,12 +62,35 @@ def run(
             "-rd", str(root_dir),
             "-sd", str(save_dir),
         ]
-        print(f"[velorama] launching: {' '.join(cmd)}")
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_sec)
-        if res.returncode != 0:
+        print(f"[velorama] launching: {' '.join(cmd)}", flush=True)
+        # Stream stdout/stderr live so progress is visible; tee into a log file
+        # so we can still inspect the tail on failure.
+        log_path = save_dir / f"{dataset_name}.velorama.log"
+        import time as _time
+        t_start = _time.time()
+        with open(log_path, "wb") as logf:
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, bufsize=1)
+            try:
+                assert proc.stdout is not None
+                for line in proc.stdout:
+                    sys.stdout.buffer.write(line)
+                    sys.stdout.buffer.flush()
+                    logf.write(line)
+                    if _time.time() - t_start > timeout_sec:
+                        proc.kill()
+                        raise TimeoutError(
+                            f"velorama exceeded {timeout_sec}s; killed. "
+                            f"Full log at {log_path}"
+                        )
+                rc = proc.wait()
+            except Exception:
+                proc.kill()
+                raise
+        if rc != 0:
+            tail = log_path.read_text(errors="replace")[-2000:]
             raise RuntimeError(
-                f"velorama CLI failed (rc={res.returncode})\n"
-                f"STDERR: {res.stderr[-800:]}\nSTDOUT: {res.stdout[-400:]}"
+                f"velorama CLI failed (rc={rc})\nLog tail:\n{tail}"
             )
 
         # Search standard output locations
