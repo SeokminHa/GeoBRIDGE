@@ -69,7 +69,8 @@ def main():
     scv.pp.moments(adata, n_pcs=30, n_neighbors=30)
     scv.tl.velocity(adata, mode="stochastic")
     scv.tl.velocity_graph(adata)
-    scv.tl.umap(adata) if "X_umap" not in adata.obsm else None
+    if "X_umap" not in adata.obsm:
+        sc.tl.umap(adata)
 
     # QC plot
     ax = scv.pl.velocity_embedding_stream(
