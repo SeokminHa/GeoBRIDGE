@@ -38,14 +38,14 @@ def run(
         root_dir.mkdir(parents=True, exist_ok=True)
         save_dir.mkdir(parents=True, exist_ok=True)
 
-        # Velorama expects var['is_regulator'] and var['is_target'] boolean masks.
-        # Score every gene as a candidate target; filter to TFs on the regulator side.
+        # Velorama's execute_cmdline reads var['is_reg'] and var['is_target'].
+        # Score every gene as a candidate target; mark TFs on the regulator side.
         adata_v = adata.copy()
         tf_set = set(tfs)
-        adata_v.var["is_regulator"] = adata_v.var_names.isin(tf_set)
+        adata_v.var["is_reg"] = adata_v.var_names.isin(tf_set)
         adata_v.var["is_target"] = True
-        if not adata_v.var["is_regulator"].any():
-            raise ValueError("no TFs overlap with var_names; cannot set is_regulator mask")
+        if not adata_v.var["is_reg"].any():
+            raise ValueError("no TFs overlap with var_names; cannot set is_reg mask")
 
         h5_path = root_dir / f"{dataset_name}.h5ad"
         adata_v.write_h5ad(h5_path)
