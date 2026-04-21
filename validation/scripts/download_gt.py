@@ -22,13 +22,46 @@ def download_lambert(out: Path) -> None:
     print(f"[lambert] {out}  ({len(r.text.splitlines())} TFs)")
 
 
+def _fetch_collectri(organism: str) -> pd.DataFrame:
+    """Robust to decoupler 1.x / 2.x / missing."""
+    try:
+        import decoupler as dc
+        if hasattr(dc, "op") and hasattr(dc.op, "collectri"):
+            return dc.op.collectri(organism=organism)
+        if hasattr(dc, "get_collectri"):
+            return dc.get_collectri(organism=organism, split_complexes=False)
+    except Exception as e:
+        print(f"[collectri] decoupler path failed: {e}")
+    try:
+        from omnipath.interactions import CollecTRI
+        df = CollecTRI.get(genesymbols=True, organism=organism)
+        df = df.rename(columns={"source_genesymbol": "source",
+                                "target_genesymbol": "target"})
+        return df
+    except Exception as e:
+        print(f"[collectri] omnipath path failed: {e}")
+    import requests
+    from io import StringIO
+    url = "https://github.com/saezlab/CollecTRI/raw/main/CollecTRI_regulons.csv"
+    r = requests.get(url, timeout=60)
+    r.raise_for_status()
+    df = pd.read_csv(StringIO(r.text))
+    if organism == "mouse":
+        if "source" in df.columns:
+            df["source"] = df["source"].astype(str).str.capitalize()
+        if "target" in df.columns:
+            df["target"] = df["target"].astype(str).str.capitalize()
+    return df
+
+
 def download_collectri(out_human: Path, out_mouse: Path) -> None:
-    import decoupler as dc
-    net_h = dc.get_collectri(organism="human", split_complexes=False)
-    net_m = dc.get_collectri(organism="mouse", split_complexes=False)
+    net_h = _fetch_collectri("human")
+    net_m = _fetch_collectri("mouse")
 
     def _to_tsv(net: pd.DataFrame, path: Path) -> None:
         net = net.rename(columns={"source": "tf"})
+        if "weight" not in net.columns:
+            net["weight"] = 1.0
         if "confidence" not in net.columns:
             net["confidence"] = "A"
         net[["tf", "target", "weight", "confidence"]].to_csv(path, sep="\t", index=False)
