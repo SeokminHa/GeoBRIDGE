@@ -20,6 +20,9 @@ def main():
     args = ap.parse_args()
 
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
+    if not Path(args.gt).exists():
+        print(f"[v2] SKIP: ChIP GT file not found ({args.gt}); build it with ChIP-Atlas first.")
+        return
     rankings = load_rankings(args.rankings)
     gt = load_chip_edges(args.gt)
     gt_set = set(zip(gt["tf"].astype(str), gt["target"].astype(str)))
