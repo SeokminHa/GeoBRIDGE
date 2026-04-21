@@ -35,7 +35,11 @@ def main():
     else:
         adata = sc.read(cfg["h5ad"])
 
-    scv.pp.filter_and_normalize(adata, min_shared_counts=20, n_top_genes=cfg.get("n_hvg", 3000))
+    n_hvg = cfg.get("n_hvg", 3000)
+    scv.pp.filter_genes(adata, min_shared_counts=20)
+    scv.pp.normalize_per_cell(adata)
+    scv.pp.filter_genes_dispersion(adata, n_top_genes=n_hvg)
+    scv.pp.log1p(adata)
     scv.pp.moments(adata, n_pcs=30, n_neighbors=30)
     scv.tl.velocity(adata, mode="stochastic")
     scv.tl.velocity_graph(adata)
