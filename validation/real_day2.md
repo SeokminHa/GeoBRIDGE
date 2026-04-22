@@ -4,7 +4,115 @@
 
 ---
 
-## Day 4 update — decomposition falsified; nuisance + GSP as last projection-space tests
+## Day 4 FINAL plan — three decisive steps, no branching
+
+**Session context reset OK from this section.** 이 섹션만 읽으면 다음 세션에서 이어서 돌릴 수 있음. 아래는 결정된 실행 계획 전체.
+
+### What we know now (settled)
+
+1. 원인은 raw `M = ΔX^T ΔV` 자체의 sign flip. Lineage TFs (GATA2/KLF1/NFE2) V2 ChIP negative가 실재 (tier-A curation artifact 아님).
+2. Projection trick (top-k SVD 유무, onto/out/none)은 해결 못함 — Day 3 Task 1 실험에서 clean falsification (Task 1 결과는 아래 archive 섹션).
+3. GeoBRIDGE는 orthogonal component (NFKB1, HSF1 등 stress/IEG)는 잡음. 전체 GRN은 못 잡음.
+4. 따라서 **ML heavy idea (GNN/IRM/contrastive) 전부 premature**. 남은 건 mechanistic minimal test 뿐.
+
+### STEP 1 — Nuisance-only basis projection (final falsification)
+
+목적: blind SVD 대신 explicit confounder basis (cell cycle S/G2M + library size + n_genes + mito + ribo) 를 projecting out 했을 때 lineage TFs 복구되는지 확인. 실패 예상이지만 projection-space 접근 닫기 위해 반드시 한 번 돌림.
+
+구현: `validation/scripts/run_nuisance_projection.py` (이전 commit의 `nuisance_scoring.py`를 이 이름으로 rename + ribo/n_genes feature 추가). Pair-space `ΔX ≈ ΔN @ B` OLS 로 `V_nuis` 만들고 `(I − V_nuis V_nuis^T) M` 로 scoring. Mode `out`이 main test; `onto`/`none`은 진단용.
+
+### STEP 2 — Early-pseudotime restriction (mechanism test)
+
+목적: late/committed cell 에서 TF plateau + target overshoot 가 발생해서 `ΔX_TF · ΔV_target < 0` 을 만든다는 가설 검증. Pseudotime 첫 4분위수 (`pt ≤ Q1`) cells 만 남긴 뒤 production operator 그대로 재계산.
+
+구현: `validation/scripts/run_early_pt_geobridge.py`. `--pt-quantile` (default 0.25) 로 restriction 조절. Filtered subset 위에서 `precompute_pairspace_stats_streaming` → `select_k_by_tail_exhaustion` auto-k → `scores_from_streaming_stats(mode="out")`.
+
+### STEP 3 — Decision (strict, unambiguous)
+
+V2 ChIP lineage TFs **GATA2 / KLF1 / NFE2** NES 기준:
+
+| 결과 | 판정 |
+|---|---|
+| 위 3개 중 **2 이상에서 NES ≥ +0.5** AND stress TFs (NFKB1/HSF1) 가 부정 안됨 | **STRONG SUCCESS** → regime/formulation 확보 → writeup 진행 |
+| lineage TFs 여전히 negative, 또는 미세 개선만 (< +0.5) | **FAILURE** — projection-space 전체 종료 |
+
+"marginal improvement"는 failure 로 간주. Step 1, 2 **둘 다 strong success 조건 미달** 이면 STEP 4로 넘어가기 전에 현재 formulation은 중단.
+
+### STEP 4 — Single dataset regime test (only if STEP 1–2 완료 후)
+
+**정확히 1개 데이터셋**: Datlinger 2017 T-cell activation (CROP-seq). Non-commitment / activation regime 이라 dynamic/stress TF가 주도하는 best-case.
+
+Dentategyrus, PBMC, 기타 다중 데이터셋은 **run 안함**.
+
+Decision:
+- Datlinger 에서 correlation 대비 clear advantage → regime-conditional method 로 reframe.
+- 여전히 fail → GRN estimator로서 fundamentally invalid.
+
+### STEP 5 — Ensemble (optional, STEP 4 에서 signal 있을 때만)
+
+`correlation + geobridge` (+ optionally grnboost) rank fusion. Simple weighted average 수준. Main method 아니고 fallback publication path.
+
+### DO NOT RUN (record for future self)
+
+- GNN / message passing reformulation
+- IRM, environment-based causal ML
+- contrastive learning losses
+- learned nuisance basis via NN
+- velorama + geobridge joint fusion — Datlinger signal 확인 전까지 금지
+
+### CLI — 오늘 밤 서버 실행 순서 (전부 CPU, 순차적)
+
+```bash
+cd /data/cb/scratch/seokmin/geobridge/validation && git pull
+
+# ---- STEP 1: nuisance projection on BM ----
+python scripts/run_nuisance_projection.py --config configs/bm.yaml \
+    --out results/rankings_nuis/
+
+# ---- STEP 2: early-pt restriction on BM (first quartile) ----
+python scripts/run_early_pt_geobridge.py --config configs/bm.yaml \
+    --pt-quantile 0.25 --out results/rankings_earlyPT/
+
+# ---- STEP 3: V1 CollecTRI + V2 ChIP evaluation (same 8 diagnostic TFs) ----
+# bundle correlation baseline + both new rankings into one eval dir
+mkdir -p results/rankings_day4/bm
+cp results/rankings/correlation_bm.parquet             results/rankings_day4/bm/
+cp results/rankings_nuis/bm/gb_nuis_out_*.parquet      results/rankings_day4/bm/
+cp results/rankings_nuis/bm/gb_nuis_none_*.parquet     results/rankings_day4/bm/
+cp results/rankings_earlyPT/bm/gb_earlyPT_q25_*.parquet results/rankings_day4/bm/
+
+python scripts/run_v1_enrichment.py \
+    --rankings "results/rankings_day4/bm/*_bm.parquet" \
+    --gt data/gt/dorothea_tierA.tsv \
+    --out results/v1_day4/bm/
+
+python scripts/run_v1_enrichment.py \
+    --rankings "results/rankings_day4/bm/*_bm.parquet" \
+    --gt data/gt/chip_subset_bm.tsv --max-size 2000 \
+    --out results/v2_day4/bm/
+
+# ---- Step 3 readout: send these two files back ----
+cat results/v2_day4/bm/per_tf.csv
+cat results/v1_day4/bm/per_tf.csv
+```
+
+### What Seokmin checks in the output (decision SOP)
+
+1. `results/v2_day4/bm/per_tf.csv` 열어서 lineage TFs 3개 (`GATA2`, `KLF1`, `NFE2`) 의 NES 컬럼 확인.
+2. 각 TF 행에서 methods `gb_nuis_out_d{d}` 과 `gb_earlyPT_q25_k{K}` 가 둘 다 존재하는지 체크.
+3. **Strong success**: 위 두 methods 중 적어도 한쪽에서 `GATA2/KLF1/NFE2` 세 TF 중 **2 이상 NES ≥ +0.5** AND `NFKB1/HSF1` row에서 NES > 0 유지.
+4. 아니면 failure → STEP 4 (Datlinger) 로 이동.
+
+### Artifacts committed this session
+
+- `validation/scripts/run_nuisance_projection.py` (STEP 1)
+- `validation/scripts/run_early_pt_geobridge.py` (STEP 2)
+- `validation/scripts/gsp_diagnostic.py` (reference; Day 4 interpretive, STEP 1-3 decision에는 사용 안 함)
+- 이 `real_day2.md` Day 4 섹션
+
+---
+
+## Day 4 archive — decomposition falsified (Task 1 결과 기록)
 
 ### Task 1 결과 (decomposition 실험, k=2 / k=17)
 
