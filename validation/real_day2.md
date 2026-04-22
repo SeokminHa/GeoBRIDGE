@@ -1,6 +1,147 @@
+# GeoBRIDGE validation — Day 5 status (2026-04-22)
+
+> **Day 2 → Day 3 → Day 4 → Day 5 누적. 아래 "Day 5" 섹션이 최신. 세션 리셋 후 이 섹션부터 읽으면 됨. Day 4 이하는 배경으로만.**
+
+---
+
+## Day 5 — from "nuisance projection" to direct pseudotime-drift test
+
+**핵심 전환**: Day 4의 "nuisance projection" 실험이 겉보기로는 lineage TF 2개를 복구했지만, nuisance feature가 processed X에서 fallback된 상태였고 V_nuis의 top gene loadings를 확인해 보니 그것이 *technical confounder* 가 아니라 *lineage commitment axis* 였다. 그래서 "nuisance 제거" 라는 해석이 무너졌고, 대신 바로 그 lineage axis = **pseudotime drift** 를 projecting out 하는 clean mechanistic test로 넘어간다.
+
+### Day 4 실행 결과 (settled facts)
+
+STEP 1 (nuisance projection) + STEP 2 (early-PT restriction) 둘 다 서버에서 실행 완료.
+
+**STEP 2 — early-PT restriction** (strict decision rule fail):
+- `--pt-quantile 0.25`, `--ks 0,2,auto` 3개 모두 BM V2 ChIP 에서 lineage TFs GATA2/KLF1/NFE2 NES 여전히 음수 (모두 < 0). stress TFs NFKB1/HSF1 은 양수 유지.
+- **해석 (교정된 버전)**: 단순히 "late-cell plateau 가 원인이 아니다" 라고만 말할 수 있음. 같은 subset 위에서 k=0/k=2/k=auto 를 모두 test 했기 때문에 "auto-k 가 바뀌어서 결론이 달라졌다" 는 confound 는 제거됨. 하지만 cell subset + GxG subset 이 동시에 줄어든 상황이라 "early regime 자체 에서도 lineage negative" 라는 제한된 statement 만 유효.
+- **Decision**: late plateau 가설 **기각**.
+
+**STEP 1 — nuisance projection** (provenance 분리 후 재해석):
+- 원래 설계 (cell cycle S/G2M, log_total_counts, pct_mito, pct_ribo, n_genes) → BM adata 에는 `adata.raw = None` + obs 에 QC 컬럼 전무 → 5 feature 전부 processed X (Ms) 에서 fallback 계산됨.
+- Script 를 provenance-aware 로 patch (commit 97289a3 계열): tag 가 `gb_nuisQC_*` (all QC-genuine) vs `gb_nuisPROC_*` (any processed fallback) 로 분화됨. BM 은 전부 `gb_nuisPROC_*` 만 나옴.
+- `gb_nuisPROC_out_d5` (d=5, 모든 feature 를 processed X 기반으로) V2 ChIP per_tf 결과:
+  | TF | class | NES |
+  |---|---|---:|
+  | GATA2 | lineage | **−1.17** (unchanged) |
+  | KLF1  | lineage | **+1.01** (flipped ✓) |
+  | NFE2  | lineage | **+1.06** (flipped ✓) |
+  | NFKB1 | stress  | +1.21 (kept) |
+  | HSF1  | stress  | +1.53 (kept) |
+  | KLF4  | stress  | +1.05 (kept) |
+- Strict rule (lineage 2/3 NES ≥ +0.5 AND stress 유지) = **FIRST STRONG SUCCESS** on BM. 그러나 이게 "nuisance 가 lineage TF 를 오염시키고 있었다" 는 증거인지는 별개 문제.
+
+### V_nuis gene loading 검사 — 결정적 반전
+
+`vnuis_bm.npz` 의 V_nuis (G × 5) 각 component 에서 |loading| top gene 들을 확인한 결과 (값은 approx):
+
+| component | top genes |
+|---|---|
+| v1 (S-score analog)     | MPO, LYZ, ELANE, AZU1 (granulocyte/myeloid lineage markers) |
+| v2 (G2M-score analog)   | TOP2A, MKI67 (실제 cycling 신호) + MPO 혼합 |
+| v3 (log_total_counts)   | HBB, HBA1, HBA2, GATA1 타깃 (erythroid lineage markers) |
+| v4 (pct_mito proxy)     | MT-코드 안나오고 대신 HLA / Ig germline 단편 |
+| v5 (pct_ribo proxy)     | CD79B, VPREB1/3, MS4A1 (B-lineage markers) |
+
+즉, "processed X 에서 뽑은 nuisance proxy" 5개가 사실상 **myeloid / cycling / erythroid / lymphoid / B-cell** 축을 span 하는 lineage commitment basis 와 거의 같다. `(I − V_nuis V_nuis^T) M` 이 KLF1/NFE2 를 복구한 이유는 "nuisance 제거" 가 아니라 **lineage commitment direction 자체를 제거해 보니 sign 이 뒤집혔다** 는 뜻.
+
+### Sign-inversion framing (corrected interpretation)
+
+Day 3 / Day 4 에서 "method fails on lineage" 라고 했지만, magnitudes 를 보면 |NES| ≈ 1.0–1.5 로 correlation baseline 과 비슷. 단지 **부호** 가 반대. Score 가 `[−1, 1]` 이고 −1 이 strong negative regulation, +1 이 strong positive regulation 이라는 semantics 하에서:
+
+> GeoBRIDGE 는 KLF1 → hemoglobin targets 같은 **positive** lineage regulation 을 **negative** 로 예측 중. Targets 은 맞게 고르고 있지만 direction 을 체계적으로 뒤집음.
+
+"fails to rank" 가 아니라 **"systematically sign-inverts on lineage programs"**. 이건 근본적으로 다른 진단이고, 해결 가능성이 더 있을 수도 있는 failure mode.
+
+### Core hypothesis — sign-flip mechanism
+
+Sign inversion 의 후보 2 개 (상호 배타 아님):
+
+**(A) Pseudotime drift dominance** — forward pair sampling 이 pseudotime 증가 방향 pair 만 뽑기 때문에, committed regime 에서 ΔX ≈ Δpt · (lineage axis) 가 되고 ΔV 의 미분 방향과 **기하적으로** 둔각을 이룸. 결과: M = ΔXc^T ΔV 의 lineage row 가 음수.
+
+**(B) Velocity phase mismatch** — TF 의 transcription (ΔV_TF) 은 미래 변화를 예측하므로 target 의 현재 ΔV 와 positive 하게 상관되어야 하지만, mature commitment 단계에서 TF 는 이미 peak plateau 에 들어가 있고 target 은 여전히 overshooting → ΔX_TF ≈ 0 이지만 ΔV_target 은 계속 양수. 이건 spliced/unspliced RNA velocity 의 time-lag artifact.
+
+가설 (A) 를 test 하는 direct operator 가 Day 5 의 STEP 5.
+
+### STEP 5 (implemented, not yet run) — direct pseudotime-drift projection
+
+파일: [validation/scripts/run_pt_drift_projection.py](validation/scripts/run_pt_drift_projection.py)
+
+핵심 차이 vs Day 4 nuisance projection:
+- Nuisance feature 를 돌아가지 않음. **Δpt 자체** (polynomial basis `[Δpt, Δpt², ...]`) 로 `ΔX ≈ poly(Δpt) @ B` OLS.
+- B.T 의 QR → `V_drift ∈ R^{G × d}` (d = order).
+- `(I − V_drift V_drift^T) · M` 으로 scoring.
+- `--orders 1,2,3` 다 비교 (order=1 은 순수 linear drift, order≥2 는 accelerating/decelerating commitment).
+- `--max-pairs-per-cell` override (BM full precompute 75분 → 5분 수준으로 감축 가능).
+
+출력 tag:
+- `gb_drift_none` — raw M baseline (한 번만 emit)
+- `gb_drift_out_o{order}d{d}` — main test (order 별로 하나)
+
+Decision rule (STEP 3 과 동일 strict):
+- lineage TFs GATA2 / KLF1 / NFE2 중 **2/3 이상 NES ≥ +0.5** AND stress TFs (NFKB1/HSF1) 유지 → **가설 (A) 확정** — sign-flip 은 pseudotime drift 가 M 을 dominate 했기 때문. Method 는 drift-residual regime 에서 올바른 방향 찾음.
+- lineage 복구 실패 → 가설 (A) 기각, (B) velocity phase mismatch 로 넘어감 (STEP 6).
+
+### STEP 6 (planned, only if STEP 5 fails) — ODE-degradation correction
+
+spliced/unspliced velocity 의 time-lag 가 원인이면 ΔV 를 `ΔV_corrected = ΔV + γ · ΔX_target` 로 조금씩 "앞으로 당겨서" scoring 해보는 1-parameter sweep (γ ∈ {0, 0.1, 0.5, 1.0}). 그러나 이건 STEP 5 결과 본 후 결정.
+
+### Data caveats (다음 session 시작 시 반드시 확인)
+
+1. `adata.raw is None` for BM h5ad — raw spliced count 기반 QC feature 재생성 불가.
+2. `adata.obs` 에 `total_counts`, `n_genes`, `pct_counts_mt`, `pct_counts_ribo` 전무 — scanpy 기본 QC 도 돌아있지 않음.
+3. 따라서 "genuine QC nuisance" 실험을 정식으로 하려면 raw h5ad 에서 다시 preprocess 해야 함 (Wessels pipeline rerun). 지금 session 에서는 하지 않았고, STEP 5 결과 에 따라 필요할 수도 있고 불필요할 수도 있음.
+4. BM GxG = 3000, n_cells = 5780, forward pair pool ≈ 16.7M. `max_pairs_per_cell=200` 이면 ~1.2M pair 로 GxG accumulation ~5분; default (`None` = 모두) 면 75분.
+
+### Server CLI — STEP 5 execution order (CPU 전부)
+
+```bash
+cd /data/cb/scratch/seokmin/geobridge/validation && git pull
+
+# ---- STEP 5: pseudotime-drift projection on BM ----
+# max_pairs_per_cell 200 으로 빠르게 돌림. 정확도 더 필요하면 300~500.
+python scripts/run_pt_drift_projection.py --config configs/bm.yaml \
+    --orders 1,2,3 --modes none,out \
+    --max-pairs-per-cell 200 \
+    --out results/rankings_drift/
+
+# ---- STEP 5 eval: V2 ChIP 만 돌림 (lineage/stress TFs 8개) ----
+mkdir -p results/rankings_day5/bm
+cp results/rankings/correlation_bm.parquet          results/rankings_day5/bm/
+cp results/rankings_drift/bm/gb_drift_none_*.parquet results/rankings_day5/bm/
+cp results/rankings_drift/bm/gb_drift_out_*.parquet  results/rankings_day5/bm/
+
+python scripts/run_v1_enrichment.py \
+    --rankings "results/rankings_day5/bm/*_bm.parquet" \
+    --gt data/gt/chip_subset_bm.tsv --max-size 2000 \
+    --out results/v2_day5/bm/
+
+cat results/v2_day5/bm/per_tf.csv
+```
+
+Runtime 예상: drift script ~7분 (streaming precompute 5분 + 3 orders scoring ~2분), V2 enrichment ~5분. 총 < 15분.
+
+### Session-reset handoff checklist
+
+Next session 시작 시:
+1. 이 Day 5 섹션 먼저. Day 4 Task 1 결과 (decomposition falsified) 와 Day 4 nuisance 성공의 **재해석** (lineage axis 제거였음) 만 기억하면 됨.
+2. 서버에서 STEP 5 결과 `results/v2_day5/bm/per_tf.csv` 받아옴.
+3. **Decision**:
+   - lineage TFs 2/3 이상 NES ≥ +0.5 on `gb_drift_out_o{1|2|3}` AND NFKB1/HSF1 > 0 유지 → **가설 (A) 확정** → "GeoBRIDGE scores are reliable after removing pseudotime-drift axis" 라는 scoped claim 으로 writeup 시작.
+   - 실패 → 가설 (B) velocity phase mismatch 로 넘어가서 STEP 6 (ODE γ sweep) 구현.
+   - Marginal (NES 0 ~ +0.3 범위) → 가설 (A) 일부만 기여, drift 제거 + phase correction 합쳐야 할 수도 있음. 이 경우 STEP 5 + STEP 6 결합 실험.
+4. **중요 negative constraints (금지 사항)**: GNN / IRM / contrastive / learned nuisance NN 전부 여전히 금지. STEP 5/6 전부 mechanistic minimal test. Method paper redesign 금지.
+
+### Artifacts committed this session
+
+- [validation/scripts/run_pt_drift_projection.py](validation/scripts/run_pt_drift_projection.py) (STEP 5)
+- 이 `real_day2.md` 의 Day 5 섹션
+
+---
+
 # GeoBRIDGE validation — Day 4 status (2026-04-21 deep night)
 
-> **이 파일은 Day 2 → Day 3 → Day 4로 누적됨. 아래 "Day 4 update" 섹션이 최신. 세션 리셋 후 이 섹션부터 읽으면 됨.**
+> Day 4 섹션 이하는 Day 5 의 전제/배경. Day 5 읽고 필요시 참조.
 
 ---
 
