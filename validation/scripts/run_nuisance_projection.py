@@ -86,49 +86,134 @@ def _score_cc(adata):
     sc.tl.score_genes_cell_cycle(adata, s_genes=s_genes, g2m_genes=g2m_genes)
 
 
-def _compute_nuisance_scores(adata, mito_prefixes=("MT-", "Mt-")):
-    """Return (n_cells, d_nuis) and column names."""
-    _score_cc(adata)
+def _prefix_mask(var_names, prefixes):
+    vn_upper = np.char.upper(np.asarray(var_names, dtype=str))
+    mask = np.zeros(len(vn_upper), dtype=bool)
+    for p in prefixes:
+        mask |= np.char.startswith(vn_upper, p.upper())
+    return mask
 
-    X = adata.X
-    if sp.issparse(X):
-        X = X.toarray()
-    X = np.asarray(X).astype(np.float64)
+
+def _compute_nuisance_scores(adata, mito_prefixes=("MT-", "Mt-"),
+                              ribo_prefixes=("RPS", "RPL")):
+    """Build nuisance covariate matrix preferring pre-filter QC columns.
+
+    Priority cascade per feature:
+      1. adata.obs[<qc column>] if present (these are written pre-HVG by
+         scanpy/scvelo preprocessing and are true technical covariates)
+      2. adata.raw.X if present (unfiltered counts)
+      3. adata.X (PROCESSED — degraded proxy; logged as such)
+
+    Returns (N, names, provenance_dict).
+    """
+    _score_cc(adata)
+    obs = adata.obs
 
     cols = [
-        np.asarray(adata.obs["S_score"], dtype=np.float64),
-        np.asarray(adata.obs["G2M_score"], dtype=np.float64),
-        np.log1p(X.sum(axis=1)).astype(np.float64),
-        np.log1p((X > 0).sum(axis=1)).astype(np.float64),
+        np.asarray(obs["S_score"],   dtype=np.float64),
+        np.asarray(obs["G2M_score"], dtype=np.float64),
     ]
-    names = ["S_score", "G2M_score", "log_total_counts", "log_n_genes"]
+    names = ["S_score", "G2M_score"]
+    prov = {
+        "S_score":   "adata.obs (score_genes_cell_cycle on adata.X)",
+        "G2M_score": "adata.obs (score_genes_cell_cycle on adata.X)",
+    }
 
-    vn_upper = np.char.upper(np.asarray(adata.var_names, dtype=str))
-    tot = X.sum(axis=1)
+    # Lazily fetched expression sources
+    _cache = {"raw_X": None, "X_proc": None}
 
-    mito_mask = np.zeros(adata.n_vars, dtype=bool)
-    for pref in mito_prefixes:
-        mito_mask |= np.char.startswith(vn_upper, pref.upper())
-    if int(mito_mask.sum()) > 0:
-        mito_frac = X[:, mito_mask].sum(axis=1) / np.clip(tot, 1e-12, None)
-        cols.append(mito_frac.astype(np.float64))
-        names.append("pct_mito")
+    def _raw_X():
+        if _cache["raw_X"] is None and adata.raw is not None:
+            Xr = adata.raw.X
+            _cache["raw_X"] = Xr.toarray() if sp.issparse(Xr) else np.asarray(Xr)
+        return _cache["raw_X"]
+
+    def _proc_X():
+        if _cache["X_proc"] is None:
+            Xp = adata.X
+            _cache["X_proc"] = Xp.toarray() if sp.issparse(Xp) else np.asarray(Xp)
+        return _cache["X_proc"]
+
+    # library size
+    if "total_counts" in obs.columns:
+        lib = np.asarray(obs["total_counts"], dtype=np.float64)
+        src = "obs.total_counts (pre-filter QC)"
+    elif _raw_X() is not None:
+        lib = _raw_X().sum(axis=1).astype(np.float64)
+        src = "adata.raw.X row sum"
     else:
-        print("[nuis] no mito genes found; skipping pct_mito")
+        lib = _proc_X().sum(axis=1).astype(np.float64)
+        src = "adata.X row sum (PROCESSED — degraded)"
+    cols.append(np.log1p(lib)); names.append("log_total_counts"); prov["log_total_counts"] = src
 
-    # ribosomal prefixes RPS / RPL (mouse Rps/Rpl — uppercase covers both)
-    ribo_mask = np.char.startswith(vn_upper, "RPS") | \
-                np.char.startswith(vn_upper, "RPL")
-    if int(ribo_mask.sum()) > 0:
-        ribo_frac = X[:, ribo_mask].sum(axis=1) / np.clip(tot, 1e-12, None)
-        cols.append(ribo_frac.astype(np.float64))
-        names.append("pct_ribo")
+    # n_genes_by_counts
+    if "n_genes_by_counts" in obs.columns:
+        ngenes = np.asarray(obs["n_genes_by_counts"], dtype=np.float64)
+        src = "obs.n_genes_by_counts (pre-filter QC)"
+    elif "n_genes" in obs.columns:
+        ngenes = np.asarray(obs["n_genes"], dtype=np.float64)
+        src = "obs.n_genes"
+    elif _raw_X() is not None:
+        ngenes = (_raw_X() > 0).sum(axis=1).astype(np.float64)
+        src = "adata.raw.X nonzero count"
     else:
-        print("[nuis] no ribosomal genes found; skipping pct_ribo")
+        ngenes = (_proc_X() > 0).sum(axis=1).astype(np.float64)
+        src = "adata.X nonzero count (PROCESSED)"
+    cols.append(np.log1p(ngenes)); names.append("log_n_genes"); prov["log_n_genes"] = src
+
+    # pct_mito
+    added_mito = False
+    for cand in ("pct_counts_mt", "percent_mito", "pct_counts_Mt"):
+        if cand in obs.columns:
+            cols.append(np.asarray(obs[cand], dtype=np.float64))
+            names.append("pct_mito"); prov["pct_mito"] = f"obs.{cand}"
+            added_mito = True; break
+    if not added_mito:
+        if _raw_X() is not None:
+            vn = adata.raw.var_names
+            Xuse = _raw_X()
+            src_tag = "adata.raw prefix scan"
+        else:
+            vn = adata.var_names
+            Xuse = _proc_X()
+            src_tag = "adata.X prefix scan (PROCESSED)"
+        m = _prefix_mask(vn, mito_prefixes)
+        if int(m.sum()) > 0:
+            tot = np.clip(Xuse.sum(axis=1), 1e-12, None)
+            cols.append((Xuse[:, m].sum(axis=1) / tot).astype(np.float64))
+            names.append("pct_mito"); prov["pct_mito"] = src_tag
+        else:
+            print("[nuis] no mito signal available; skipping pct_mito")
+
+    # pct_ribo
+    added_ribo = False
+    for cand in ("pct_counts_ribo", "percent_ribo"):
+        if cand in obs.columns:
+            cols.append(np.asarray(obs[cand], dtype=np.float64))
+            names.append("pct_ribo"); prov["pct_ribo"] = f"obs.{cand}"
+            added_ribo = True; break
+    if not added_ribo:
+        if _raw_X() is not None:
+            vn = adata.raw.var_names
+            Xuse = _raw_X()
+            src_tag = "adata.raw prefix scan"
+        else:
+            vn = adata.var_names
+            Xuse = _proc_X()
+            src_tag = "adata.X prefix scan (PROCESSED)"
+        m = _prefix_mask(vn, ribo_prefixes)
+        if int(m.sum()) > 0:
+            tot = np.clip(Xuse.sum(axis=1), 1e-12, None)
+            cols.append((Xuse[:, m].sum(axis=1) / tot).astype(np.float64))
+            names.append("pct_ribo"); prov["pct_ribo"] = src_tag
+        else:
+            print("[nuis] no ribo signal available; skipping pct_ribo")
 
     N = np.column_stack(cols)
-    print(f"[nuis] nuisance matrix shape {N.shape}; columns: {names}")
-    return N, names
+    print(f"[nuis] nuisance matrix shape {N.shape}")
+    for n in names:
+        print(f"[nuis]   {n:20s} <- {prov[n]}")
+    return N, names, prov
 
 
 def _nuisance_basis_pair_space(X, N, order, n_pairs=100_000,
@@ -234,8 +319,8 @@ def main():
     tf_set = set(tfs)
     genes = adata.var_names.tolist()
 
-    # Nuisance scores on unordered adata (obs-aligned)
-    N_raw, n_names = _compute_nuisance_scores(adata)
+    # Nuisance scores on unordered adata (obs-aligned); prefer QC obs cols
+    N_raw, n_names, prov = _compute_nuisance_scores(adata)
 
     X = np.asarray(adata.layers.get(args.layer_X, adata.X)).astype(np.float64)
     V = np.asarray(adata.layers[args.layer_V]).astype(np.float64)
@@ -281,10 +366,13 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     d = V_nuis.shape[1]
+    # "QC" prefix = any non-PROCESSED provenance in nuisance features
+    tag_prefix = "gb_nuisQC" if not any("PROCESSED" in v for v in prov.values()) \
+                 else "gb_nuisPROC"
     modes = [m.strip() for m in args.modes.split(",") if m.strip()]
     for mode in modes:
-        tag = (f"gb_nuis_none" if mode == "none"
-               else f"gb_nuis_{mode}_d{d}")
+        tag = (f"{tag_prefix}_none" if mode == "none"
+               else f"{tag_prefix}_{mode}_d{d}")
         out_pq = out_dir / f"{tag}_{cfg['name']}.parquet"
         if out_pq.exists() and not args.force:
             print(f"[skip] {out_pq}")
@@ -296,10 +384,15 @@ def main():
         print(f"[ok]  {tag}  mode={mode}  {time.time()-t0:5.1f}s  "
               f"n_edges={len(df):,}")
 
-    # Persist V_nuis and column names for reproducibility
+    # Persist V_nuis + provenance for reproducibility
     np.savez(out_dir / f"vnuis_{cfg['name']}.npz",
              V_nuis=V_nuis, cols=np.array(n_names))
-    print(f"[nuis] done; parquets + V_nuis in {out_dir}")
+    import json
+    (out_dir / f"nuisance_provenance_{cfg['name']}.json").write_text(
+        json.dumps({"features": n_names, "provenance": prov,
+                    "d_nuis": int(d), "tag_prefix": tag_prefix,
+                    "n_pairs_for_basis": int(args.n_pairs_for_basis)}, indent=2))
+    print(f"[nuis] done; tag_prefix={tag_prefix}; artifacts in {out_dir}")
 
 
 if __name__ == "__main__":

@@ -71,8 +71,11 @@ def main():
     ap.add_argument("--config", required=True)
     ap.add_argument("--pt-quantile", type=float, default=0.25,
                     help="keep cells with pseudotime <= this quantile")
-    ap.add_argument("--k", type=int, default=None,
-                    help="fixed k; default = spectral auto-select on subset")
+    ap.add_argument("--ks", default="auto",
+                    help="comma-separated list of k values; special value "
+                         "'auto' = spectral auto-select on subset. "
+                         "Example: '0,2,auto' produces three parquets in "
+                         "one run, sharing the streaming stats.")
     ap.add_argument("--out", default="results/rankings_earlyPT")
     ap.add_argument("--layer-X", default="Ms")
     ap.add_argument("--layer-V", default="velocity")
@@ -135,36 +138,46 @@ def main():
     if pre["n_pairs"] < 500:
         raise SystemExit(f"too few pairs ({pre['n_pairs']}); restriction too tight")
 
-    if args.k is not None:
-        K = int(args.k)
-        sel_info = "user-specified"
-    else:
-        spectral = select_k_by_tail_exhaustion(
-            pre["S"], gcfg.max_k, gcfg.tail_fraction, gcfg.tail_min_start,
-            gcfg.slope_window, gcfg.stable_m, gcfg.tau,
-        )
-        K = int(spectral.k_selected)
-        sel_info = (f"auto (tail_baseline={spectral.tail_baseline:.3f}, "
-                    f"threshold={spectral.threshold:.3f})")
-    print(f"[earlyPT] k={K} [{sel_info}]")
-
-    scores = GeoBridgeModel.scores_from_streaming_stats(
-        pre, k=K, mode="out",
-        project_y=gcfg.project_y, normalize_score=True, eps=gcfg.eps,
-    )
+    ks_list = []
+    for tok in args.ks.split(","):
+        tok = tok.strip()
+        if not tok:
+            continue
+        if tok == "auto":
+            spectral = select_k_by_tail_exhaustion(
+                pre["S"], gcfg.max_k, gcfg.tail_fraction, gcfg.tail_min_start,
+                gcfg.slope_window, gcfg.stable_m, gcfg.tau,
+            )
+            k_auto = int(spectral.k_selected)
+            print(f"[earlyPT] auto k={k_auto} "
+                  f"(tail_baseline={spectral.tail_baseline:.3f}, "
+                  f"threshold={spectral.threshold:.3f})")
+            ks_list.append(("auto", k_auto))
+        else:
+            ks_list.append((tok, int(tok)))
 
     out_dir = Path(args.out) / cfg["name"]
     out_dir.mkdir(parents=True, exist_ok=True)
     qtag = f"q{int(round(q*100)):02d}"
-    tag = f"gb_earlyPT_{qtag}_k{K:02d}"
-    out_pq = out_dir / f"{tag}_{cfg['name']}.parquet"
-    if out_pq.exists() and not args.force:
-        print(f"[skip] {out_pq}")
-        return
-    df = _scores_to_long(np.asarray(scores), genes, tf_set)
-    save_ranking(df, out_pq, method=tag, dataset=cfg["name"])
-    print(f"[ok]  {tag}  n_edges={len(df):,}")
-    print(f"[earlyPT] done; parquet in {out_dir}")
+
+    for label, K in ks_list:
+        # tag: use label for auto (resolves to number), else raw int
+        tag = f"gb_earlyPT_{qtag}_k{K:02d}"
+        out_pq = out_dir / f"{tag}_{cfg['name']}.parquet"
+        if out_pq.exists() and not args.force:
+            print(f"[skip] {out_pq}")
+            continue
+        t1 = time.time()
+        scores = GeoBridgeModel.scores_from_streaming_stats(
+            pre, k=K, mode="out",
+            project_y=gcfg.project_y, normalize_score=True, eps=gcfg.eps,
+        )
+        df = _scores_to_long(np.asarray(scores), genes, tf_set)
+        save_ranking(df, out_pq, method=tag, dataset=cfg["name"])
+        print(f"[ok]  {tag}  ({label})  {time.time()-t1:4.1f}s  "
+              f"n_edges={len(df):,}")
+
+    print(f"[earlyPT] done; parquets in {out_dir}")
 
 
 if __name__ == "__main__":
