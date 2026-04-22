@@ -118,18 +118,21 @@ class GeoBridgeModel:
         }
 
     @staticmethod
-    def scores_from_streaming_stats(pre, k, project_y=True, normalize_score=True, eps=1e-12):
+    def scores_from_streaming_stats(pre, k, mode="out", project_y=True,
+                                     normalize_score=True, eps=1e-12):
         """
         Compute score matrix for a chosen k using streaming stats (no ΔX/ΔV materialization).
 
-        Numerator simplifies exactly to: (I - Pk) * M
-          where Pk = V_k V_k^T (top-k right singular vectors of ΔXc)
+        mode selects the projector applied to the numerator / x-norm:
+          - "out"  (default, production): num = (I - Pk) * M, x_norm = diag(Q C Q)
+          - "onto"                      : num = Pk * M,       x_norm = diag(Pk C Pk)
+          - "none" (or k == 0)          : num = M,            x_norm = diag(C)
 
-        Normalization:
-          - x norms from diag((I-Pk) C (I-Pk))
-          - y norms:
-              xonly: diag(Y)
-              dual : diag(Y - M^T V_k Σ_k^{-2} V_k^T M)
+          where Pk = V_k V_k^T (top-k right singular vectors of ΔXc), Q = I - Pk.
+
+        y-norms:
+          - "out" + project_y=True : diag(Y - M^T V_k Σ_k^{-2} V_k^T M)
+          - otherwise              : diag(Y)
         """
         C = pre["C"]
         M = pre["M"]
@@ -143,31 +146,35 @@ class GeoBridgeModel:
             k = 0
         k = min(k, G)
 
+        if mode not in ("out", "onto", "none"):
+            raise ValueError(f"mode must be one of out|onto|none, got {mode!r}")
+
         V = Vt.T  # (G, G)
-        if k == 0:
-            Q = np.eye(G)
+        if mode == "none" or k == 0:
             num = M
             x_norm2 = np.clip(np.diag(C), 0.0, None)
-            if project_y:
-                y_norm2 = np.clip(np.diag(Y), 0.0, None)
-            else:
-                y_norm2 = np.clip(np.diag(Y), 0.0, None)
+            y_norm2 = np.clip(np.diag(Y), 0.0, None)
         else:
             Vk = V[:, :k]  # (G, k)
             Pk = Vk @ Vk.T
-            Q = np.eye(G) - Pk
-            num = Q @ M
-            x_norm2 = np.clip(np.diag(Q @ C @ Q), 0.0, None)
-            if project_y:
-                # diag(M^T Vk Σ^-2 Vk^T M) computed without forming the full matrix
-                Sk = S[:k]
-                inv_s2 = np.zeros_like(Sk)
-                good = Sk > 1e-12
-                inv_s2[good] = 1.0 / (Sk[good] ** 2)
-                T = Vk.T @ M  # (k, G)
-                diag_R = (T * T).T @ inv_s2  # (G,)
-                y_norm2 = np.clip(np.diag(Y) - diag_R, 0.0, None)
-            else:
+            if mode == "out":
+                Q = np.eye(G) - Pk
+                num = Q @ M
+                x_norm2 = np.clip(np.diag(Q @ C @ Q), 0.0, None)
+                if project_y:
+                    # diag(M^T Vk Σ^-2 Vk^T M) computed without forming the full matrix
+                    Sk = S[:k]
+                    inv_s2 = np.zeros_like(Sk)
+                    good = Sk > 1e-12
+                    inv_s2[good] = 1.0 / (Sk[good] ** 2)
+                    T = Vk.T @ M  # (k, G)
+                    diag_R = (T * T).T @ inv_s2  # (G,)
+                    y_norm2 = np.clip(np.diag(Y) - diag_R, 0.0, None)
+                else:
+                    y_norm2 = np.clip(np.diag(Y), 0.0, None)
+            else:  # mode == "onto"
+                num = Pk @ M
+                x_norm2 = np.clip(np.diag(Pk @ C @ Pk), 0.0, None)
                 y_norm2 = np.clip(np.diag(Y), 0.0, None)
 
         if not normalize_score:
