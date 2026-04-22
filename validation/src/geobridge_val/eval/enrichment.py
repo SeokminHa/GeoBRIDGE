@@ -1,6 +1,7 @@
 """V1: GSEA preranked on TF regulons against a scored gene list per TF."""
 from __future__ import annotations
 import warnings
+import numpy as np
 import pandas as pd
 
 
@@ -20,6 +21,13 @@ def gsea_per_tf(rankings: pd.DataFrame, gt_sets: dict[str, set[str]],
                   .sort_values(ascending=False))
         if len(rnk) < 50:
             continue
+        # Sparse-output methods (e.g. SVD-based) frequently tie scores at 0,
+        # causing gseapy's Rust backend to panic on near-zero variance.
+        # Apply rank-preserving infinitesimal jitter to break ties while keeping
+        # the descending order that the upstream sort already established.
+        n = len(rnk)
+        jitter = np.linspace(0, -1e-9, n)
+        rnk = pd.Series(rnk.values + jitter, index=rnk.index)
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
@@ -27,8 +35,10 @@ def gsea_per_tf(rankings: pd.DataFrame, gt_sets: dict[str, set[str]],
                               permutation_num=n_perm, min_size=min_size,
                               max_size=max_size,
                               no_plot=True, verbose=False).res2d
-        except Exception as e:
-            out.append({"tf": tf, "nes": None, "pval": None, "error": str(e),
+        except BaseException as e:
+            # pyo3 PanicException is BaseException, not Exception
+            out.append({"tf": tf, "nes": None, "pval": None,
+                        "error": f"{type(e).__name__}: {str(e)[:200]}",
                         "n_targets": len(gt_sets[tf])})
             continue
         out.append({
