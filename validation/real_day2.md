@@ -1,6 +1,112 @@
-# GeoBRIDGE validation — Day 3 status (2026-04-21 late night)
+# GeoBRIDGE validation — Day 4 status (2026-04-21 deep night)
 
-> **이 파일은 Day 2에서 시작했고 Day 3 밤까지 누적됨. 아래 "Day 3 update" 섹션이 최신 상태.**
+> **이 파일은 Day 2 → Day 3 → Day 4로 누적됨. 아래 "Day 4 update" 섹션이 최신. 세션 리셋 후 이 섹션부터 읽으면 됨.**
+
+---
+
+## Day 4 update — decomposition falsified; nuisance + GSP as last projection-space tests
+
+### Task 1 결과 (decomposition 실험, k=2 / k=17)
+
+decompose_scoring.py 로 `gb_none`(unprojected M), `gb_onto`(`Pk M`), `gb_out`(`(I−Pk) M`) 세 버전을 같은 `pre`에서 뽑아서 BM V1 CollecTRI + V2 ChIP 모두 평가.
+
+**k=17 (auto), V2 ChIP 8 diagnostic TFs**: lineage TFs 복구 실패. `gb_onto` NES GATA2/KLF1/NFE2 ≈ `gb_out` ≈ `gb_none` (전부 음수 또는 약한 양수). `gb_none` global mean_nes=0.20 > `gb_onto`=0.14 > `gb_out`=0.08, 그러나 lineage TFs 기준으로는 셋 다 fail.
+
+**k=2, V2 ChIP 재검 (cleaner regime)**: 7/7 test 가능한 TF 중 6개에서 `gb_none ≈ gb_onto ≈ gb_out` (±0.15 NES 이내). 남은 1개도 Pk·M과 (I−Pk)·M이 서로 sign 반대로 갈라지는 게 아니라 같은 방향으로 함께 약해짐.
+
+**결론**: decomposition 가설 **clean falsification**.
+- Sign flip이 projection operator에서 발생하는 게 아니라 이미 **raw `M = ΔXc^T ΔV` 자체**에 들어있음.
+- Pk와 I−Pk 어느 subspace에서 보든 M의 lineage TF row는 lineage target 방향으로 음수임.
+- Day 3의 "production operator가 lineage를 projecting out해서 flip된다"는 mechanistic statement는 **부정확**. 실제 mechanism은 velocity ΔV가 lineage TF 자신의 ΔX와 pair-space 상에서 어긋나 있다는 더 근본적인 현상.
+
+### 남은 projection-space 변종 — Option C (nuisance-only) 왜 그래도 돌리는가
+
+decomposition이 falsified 된 이상 "더 좋은 subspace를 고르면 해결된다" 는 희망은 약하다. 그러나 한 variant가 아직 안 돌았음: **data-driven top-k SVD** 대신 **biologically-motivated low-d nuisance basis** (cell cycle + library size + mito) 를 projecting out.
+
+Prior prediction (honest): 실패 확률 높음. 이유 — `gb_none`에 이미 sign flip이 있고, small-rank projection(d≈3–4)은 M을 약간만 흔들기 때문에 sign을 뒤집을 만한 힘이 없다. **그럼에도 돌리는 이유**:
+1. 싸다 (수 분).
+2. "projection operator space" 자체를 닫는 falsification. 실패하면 "operator 문제가 아니라 raw M 문제" 라는 진단이 완성됨.
+3. 작은 확률로, 만약 sign-flip 원인이 cell-cycle confounding 이었으면 성공할 수 있음 (hematopoiesis에서 G2M/S activity는 분화 축과 크게 어긋나지 않지만 완전히 같지도 않음).
+
+**Decision rule (strict)**: lineage TFs 중 GATA2/KLF1/NFE2 가 **V2 ChIP에서 NES ≥ +0.5** 셋 중 둘 이상에 도달해야 success. 그보다 약하면 falsification 완료 → projection-space 접근 전부 종료.
+
+### Option C 구현 (`validation/scripts/nuisance_scoring.py`)
+
+핵심 steps:
+1. **Nuisance features** (adata.obs level): Tirosh 2016 S_score / G2M_score (case-insensitive + mouse capitalize fallback), log_total_counts, pct_mito. Mito prefix MT-/Mt- 자동 탐지.
+2. **Pair-space regression**: pseudotime-ordered 에서 forward pair 100k 샘플, `ΔX ≈ ΔN @ B` OLS. `B.T` 를 QR 해서 gene-space orthonormal basis `V_nuis ∈ R^{G×d}` (d≤4).
+3. **Scoring** (`_scores_with_vnuis`): `scores_from_streaming_stats` 구조를 그대로 따라가되 SVD Vk 대신 V_nuis 삽입. Mode `out`(`(I−P_nuis) M`), `onto`(`P_nuis M`), `none`(M, sanity).
+4. **project_y 끔**: y-side residualization 공식은 SVD spectrum Σ 가정이 있어 V_nuis 에 그대로 적용 불가. 단순하게 `diag(Y)` 사용.
+5. 저장: parquet + `vnuis_<dataset>.npz` (V_nuis + column names, 재현용).
+
+### GSP diagnostic (`validation/scripts/gsp_diagnostic.py`) — interpretation only
+
+목적: TF별 expression이 velocity graph 상에서 어떤 주파수 band에 앉는지 확인. **알고리즘 변경 아님**, 진단/시각화 용.
+
+Pipeline:
+1. `W = 0.5*(A + A^T)`, A = `adata.uns["velocity_graph"]` (cosine sim transition). 자기루프 제거.
+2. `L = I − D^{-1/2} W D^{-1/2}`, sparse sym.
+3. `scipy.sparse.linalg.eigsh(L, k=50, which="SM")` → 작은 50개 eigenpair.
+4. 각 TF j 에 대해 expression vector x_j ∈ R^{n_cells} 를 center, basis 에 project → power spectrum `p_k = |⟨u_k, x_j⟩|^2 / ||x_j||^2`. low(bottom 20%) / mid(20–60%) / high(top 40%) band fraction per TF.
+5. 출력: `spectral_summary.csv` (tf, low/mid/high_frac, peak_idx) + `cumulative_power.png` + `spectra.npz`.
+
+기대: lineage TFs (GATA2/KLF1/NFE2) 가 low-frequency 쪽에 집중. Production operator 가 top-k SVD basis (≈ low-freq graph modes 와 상관) 를 projecting out 하므로 그들의 signal 이 denominator 에 비해 작아진다는 시각적 확인. NFKB1/HSF1 은 mid/high 쪽으로 흩어질 것. — 단 이건 raw expression 의 spectral localization 이지 M 자체의 localization 은 아님. 상관 관계 level 의 증거만 제공.
+
+### 검증받을 요소들 (Seokmin 말한 내용 검토)
+
+원문 claim → 내 review:
+- "Stress/IEG TFs succeed because orthogonal to dominant geometry" — **부분적으로만 맞음**. Day 3 mechanism 은 decomposition 실험으로 부정되었다. 정확히는 "stress TFs 는 M 에서 애초에 부호가 양수고 lineage TFs 는 음수임". geometry orthogonality 는 해석 프레임이지 증명된 mechanism 아님.
+- "data-driven top-k SVD subspace inevitably aligns with lineage axis and removes signal" — **일부 맞지만 필요조건은 아님**. k=0 (projection 없음) 인 `gb_none` 에서도 이미 lineage fail. "projection 이 없으면 signal 복구" 가 틀렸음.
+- "nuisance-only projection 이 structural confounders 만 제거해서 causal signal 보존" — **too optimistic**. 위 prediction 참고. 돌려보되 기대치 낮게.
+- Decision rule (ΔNES ≥ 0 이면 success) — **너무 느슨함**. `gb_none` 이 이미 ΔNES ≈ 0 인 lineage TF 가 여러 개. 더 strict 기준 (NES ≥ +0.5 absolute 가 lineage TFs 2/3) 으로 상향.
+
+### 추가 아이디어 (run 안 할 거지만 기록)
+
+- **Early-pseudotime pair restriction**: committed 세포 (pt > 0.5) 만 뺀 progenitor-only pair subset 에서 재계산. Commitment axis 가 안 형성된 구간에서는 ΔV 가 lineage gene 과 어긋나지 않을 가능성. 30 분 정도면 돌릴 수 있고 negative 면 "method 는 mature bifurcation 이후 실패" 라는 clean scope statement 가 됨. Nuisance + GSP 결과 보고 판단.
+
+### 실행 CLI (server, 전부 CPU)
+
+```bash
+cd /data/cb/scratch/seokmin/geobridge/validation && git pull
+
+# [Step 1] Option C nuisance scoring on BM (main test)
+python scripts/nuisance_scoring.py --config configs/bm.yaml \
+    --out results/rankings_nuis/
+
+# [Step 2] V1 CollecTRI + V2 ChIP eval (동일 8 TFs)
+cp results/rankings/correlation_bm.parquet results/rankings_nuis/bm/
+python scripts/run_v1_enrichment.py \
+    --rankings "results/rankings_nuis/bm/*_bm.parquet" \
+    --gt data/gt/dorothea_tierA.tsv \
+    --out results/v1_nuis/bm/
+
+python scripts/run_v1_enrichment.py \
+    --rankings "results/rankings_nuis/bm/*_bm.parquet" \
+    --gt data/gt/chip_subset_bm.tsv --max-size 2000 \
+    --out results/v2_nuis/bm/
+
+# [Step 3] GSP diagnostic — 8 diagnostic TFs
+python scripts/gsp_diagnostic.py --config configs/bm.yaml --K 50 \
+    --tfs GATA2 KLF1 NFE2 RUNX1 NFKB1 HSF1 KLF2 KLF4 \
+    --out results/gsp_diag/
+
+# [Step 4] 결과 송출
+cat results/v1_nuis/bm/per_tf.csv
+cat results/v2_nuis/bm/per_tf.csv
+cat results/gsp_diag/bm/spectral_summary.csv
+```
+
+런타임 예상: nuisance scoring 수 분, enrichment 2×수 분, gsp eigsh 수 분. 총 < 30분.
+
+### Session-reset handoff checklist
+
+Next session 시작 시:
+1. 이 Day 4 섹션 먼저 읽고, Day 3/Day 2 는 배경으로만 참고.
+2. Server 결과 per_tf.csv × 2 + spectral_summary.csv + cumulative_power.png 수합 후 공유.
+3. **Decision rule 적용**:
+   - lineage TFs 2/3 이상에서 `gb_nuis_out` V2 ChIP NES ≥ +0.5 → Option C 성공 → Option A/C 비교 writeup 으로 진행.
+   - 미달 → projection-space 접근 전부 종료. GSP 결과 + nuisance fail 을 합쳐 "sign flip은 raw M 자체에 있음" 이라는 완결된 진단을 Day 5 에 기록. Early-pseudotime idea 로 넘어가거나, 아예 다른 데이터셋 (pancreas 이외) 에서 sign flip 재현 여부 확인.
+4. Pushed commits: nuisance_scoring.py, gsp_diagnostic.py, 이 Day 4 섹션.
 
 ---
 
