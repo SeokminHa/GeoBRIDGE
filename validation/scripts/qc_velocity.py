@@ -39,8 +39,9 @@ def _sanitize_and_hvg(adata, n_top: int):
 
 
 LOADERS = {
-    "bonemarrow": scv.datasets.bonemarrow,
-    "pancreas":   scv.datasets.pancreas,
+    "bonemarrow":            scv.datasets.bonemarrow,
+    "pancreas":              scv.datasets.pancreas,
+    "gastrulation_erythroid": scv.datasets.gastrulation_erythroid,
 }
 
 
@@ -55,7 +56,8 @@ def main():
 
     if cfg.get("raw_loader") == "scvelo":
         # key derived from config name
-        key = {"bm": "bonemarrow", "pancreas": "pancreas"}.get(cfg["name"])
+        key = {"bm": "bonemarrow", "pancreas": "pancreas",
+               "gastrulation_erythroid": "gastrulation_erythroid"}.get(cfg["name"])
         if key is None:
             raise ValueError(f"unknown scvelo loader for {cfg['name']}")
         adata = LOADERS[key]()
