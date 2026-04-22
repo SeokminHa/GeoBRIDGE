@@ -103,12 +103,12 @@ def _compute_nuisance_scores(adata, mito_prefixes=("MT-", "Mt-")):
     ]
     names = ["S_score", "G2M_score", "log_total_counts", "log_n_genes"]
 
-    vn_upper = adata.var_names.str.upper()
+    vn_upper = np.char.upper(np.asarray(adata.var_names, dtype=str))
     tot = X.sum(axis=1)
 
     mito_mask = np.zeros(adata.n_vars, dtype=bool)
     for pref in mito_prefixes:
-        mito_mask |= vn_upper.str.startswith(pref.upper()).to_numpy()
+        mito_mask |= np.char.startswith(vn_upper, pref.upper())
     if int(mito_mask.sum()) > 0:
         mito_frac = X[:, mito_mask].sum(axis=1) / np.clip(tot, 1e-12, None)
         cols.append(mito_frac.astype(np.float64))
@@ -117,8 +117,8 @@ def _compute_nuisance_scores(adata, mito_prefixes=("MT-", "Mt-")):
         print("[nuis] no mito genes found; skipping pct_mito")
 
     # ribosomal prefixes RPS / RPL (mouse Rps/Rpl — uppercase covers both)
-    ribo_mask = vn_upper.str.startswith("RPS").to_numpy() | \
-                vn_upper.str.startswith("RPL").to_numpy()
+    ribo_mask = np.char.startswith(vn_upper, "RPS") | \
+                np.char.startswith(vn_upper, "RPL")
     if int(ribo_mask.sum()) > 0:
         ribo_frac = X[:, ribo_mask].sum(axis=1) / np.clip(tot, 1e-12, None)
         cols.append(ribo_frac.astype(np.float64))
