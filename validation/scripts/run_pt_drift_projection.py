@@ -55,35 +55,98 @@ def _get_pseudotime(adata):
     return np.asarray(adata.obs["velocity_pseudotime"]).astype(np.float64)
 
 
-def _drift_basis(X, pt, n_pairs=100_000, dt_max=50, order=1, seed=0):
-    """Pair-space drift basis via ΔX ≈ poly(Δpt) @ B OLS.
-
-    Returns V_drift ∈ R^{G × d} with d = order (orthonormal columns).
-    Caller is responsible for pt-ordering X and pt (j > i in index => Δpt > 0).
-    """
+def _sample_forward_pairs(X, pt, n_pairs=100_000, dt_max=50, seed=0):
     rng = np.random.default_rng(seed)
     n = X.shape[0]
     i_idx = rng.integers(0, n - 1, size=n_pairs)
     max_off = np.clip(n - 1 - i_idx, 1, dt_max)
     off = (rng.random(n_pairs) * max_off).astype(np.int64) + 1
     j_idx = np.clip(i_idx + off, 0, n - 1)
-
     dpt = (pt[j_idx] - pt[i_idx]).astype(np.float64)
     dX = X[j_idx] - X[i_idx]
-    dX -= dX.mean(axis=0, keepdims=True)
+    return dpt, dX
 
+
+def _poly_basis(dpt, order):
     if order == 1:
         DN = dpt[:, None].copy()
     else:
-        cols = [dpt]
-        for p in range(2, order + 1):
-            cols.append(dpt ** p)
-        DN = np.column_stack(cols)
+        DN = np.column_stack([dpt ** p for p in range(1, order + 1)])
     DN -= DN.mean(axis=0, keepdims=True)
+    return DN
 
+
+def _drift_basis(X, pt, n_pairs=100_000, dt_max=50, order=1, seed=0):
+    """Pair-space drift basis via ΔX ≈ poly(Δpt) @ B OLS.
+
+    Returns V_drift ∈ R^{G × d} with d = order (orthonormal columns).
+    Caller is responsible for pt-ordering X and pt (j > i in index => Δpt > 0).
+    """
+    dpt, dX = _sample_forward_pairs(X, pt, n_pairs, dt_max, seed)
+    dX -= dX.mean(axis=0, keepdims=True)
+    DN = _poly_basis(dpt, order)
     B, *_ = np.linalg.lstsq(DN, dX, rcond=None)   # B: (order, G)
     V_drift, _ = np.linalg.qr(B.T)                # (G, order)
     return V_drift
+
+
+def select_pt_order_cv(X, pt, order_max=5, n_pairs=100_000, dt_max=50,
+                       n_folds=5, seed=0):
+    """Select polynomial order via K-fold CV on pair reconstruction residual.
+
+    Returns (order_cv, order_elbow, diagnostics_dict).
+
+    - order_cv: argmin of held-out SSE across orders.
+    - order_elbow: last order whose marginal gain (SSE[k-1] - SSE[k]) exceeds
+      half of the previous marginal gain. Fragile operator sanity check.
+      If both criteria disagree, the basis choice is not robust.
+
+    Rationale: naïve train-SSE is monotone non-increasing in order, so picking
+    "min reconstruction error" trivially returns order_max. CV on held-out
+    pairs penalizes overfitting the OLS coefficients and converges when the
+    polynomial is genuinely saturating the pair-geometry.
+    """
+    dpt, dX = _sample_forward_pairs(X, pt, n_pairs, dt_max, seed)
+    dXc = dX - dX.mean(axis=0, keepdims=True)
+    rng = np.random.default_rng(seed + 1)
+    fold = rng.integers(0, n_folds, size=dpt.shape[0])
+
+    cv_sse = {}
+    train_sse = {}
+    for order in range(1, order_max + 1):
+        DN = _poly_basis(dpt, order)
+        te_total, tr_total = 0.0, 0.0
+        for k in range(n_folds):
+            te = fold == k
+            tr = ~te
+            B, *_ = np.linalg.lstsq(DN[tr], dXc[tr], rcond=None)
+            te_total += float(((dXc[te] - DN[te] @ B) ** 2).sum())
+            tr_total += float(((dXc[tr] - DN[tr] @ B) ** 2).sum())
+        cv_sse[order] = te_total
+        train_sse[order] = tr_total
+
+    orders = sorted(cv_sse.keys())
+    order_cv = min(orders, key=lambda o: cv_sse[o])
+
+    gains = {orders[i]: cv_sse[orders[i-1]] - cv_sse[orders[i]]
+             for i in range(1, len(orders))}
+    order_elbow = orders[0]
+    prev_gain = None
+    for o in orders[1:]:
+        g = gains[o]
+        if prev_gain is None or g >= 0.5 * max(prev_gain, 0.0):
+            order_elbow = o
+        else:
+            break
+        prev_gain = g
+
+    diag = {
+        "orders": orders,
+        "cv_sse": [cv_sse[o] for o in orders],
+        "train_sse": [train_sse[o] for o in orders],
+        "marginal_gain": [gains.get(o, float("nan")) for o in orders],
+    }
+    return order_cv, order_elbow, diag
 
 
 def _scores_with_basis(pre, V, mode="out", eps=1e-12):
@@ -130,6 +193,12 @@ def main():
     ap.add_argument("--orders", default="1,2,3",
                     help="comma-separated polynomial orders for drift basis "
                          "(order=1 => 1-d Δpt; order=2 => [Δpt, Δpt²]; etc.)")
+    ap.add_argument("--auto-order", action="store_true",
+                    help="select order via K-fold CV on pair reconstruction "
+                         "SSE (held-out), overriding --orders. Saves the "
+                         "full CV curve to selected_order_<name>.npz.")
+    ap.add_argument("--auto-order-max", type=int, default=5,
+                    help="max order searched when --auto-order is set")
     ap.add_argument("--modes", default="none,out",
                     help="scoring modes; 'none' emits raw-M baseline once")
     ap.add_argument("--n-pairs-for-basis", type=int, default=100_000)
@@ -184,7 +253,30 @@ def main():
     out_dir = Path(args.out) / cfg["name"]
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    orders = [int(o.strip()) for o in args.orders.split(",") if o.strip()]
+    if args.auto_order:
+        order_cv, order_elbow, diag = select_pt_order_cv(
+            X, pt, order_max=args.auto_order_max,
+            n_pairs=args.n_pairs_for_basis,
+        )
+        print(f"[drift/auto-order] orders={diag['orders']}")
+        print(f"[drift/auto-order] cv_sse={['%.3e' % v for v in diag['cv_sse']]}")
+        print(f"[drift/auto-order] marginal_gain="
+              f"{['%.3e' % v for v in diag['marginal_gain']]}")
+        print(f"[drift/auto-order] order_cv={order_cv}  order_elbow={order_elbow}")
+        if order_cv != order_elbow:
+            print(f"[drift/auto-order] WARNING: CV-min and elbow disagree "
+                  f"({order_cv} vs {order_elbow}) — operator is fragile; "
+                  f"proceeding with CV-min.")
+        np.savez(out_dir / f"selected_order_{cfg['name']}.npz",
+                 orders=np.asarray(diag["orders"]),
+                 cv_sse=np.asarray(diag["cv_sse"]),
+                 train_sse=np.asarray(diag["train_sse"]),
+                 marginal_gain=np.asarray(diag["marginal_gain"]),
+                 order_cv=np.asarray([order_cv]),
+                 order_elbow=np.asarray([order_elbow]))
+        orders = [order_cv]
+    else:
+        orders = [int(o.strip()) for o in args.orders.split(",") if o.strip()]
     modes = [m.strip() for m in args.modes.split(",") if m.strip()]
 
     none_emitted = False
