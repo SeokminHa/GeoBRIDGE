@@ -16,6 +16,8 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--n-perm", type=int, default=1000)
     ap.add_argument("--min-size", type=int, default=5)
+    ap.add_argument("--max-size", type=int, default=500,
+                    help="gseapy prerank max_size; raise for ChIP-derived large target sets")
     args = ap.parse_args()
 
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
@@ -24,9 +26,11 @@ def main():
     sets = gt_sets(gt, min_size=args.min_size)
 
     print(f"[v1] rankings: {len(rankings):,} rows, {rankings['method'].nunique()} methods")
-    print(f"[v1] GT: {len(sets)} TFs with ≥{args.min_size} tier-A targets")
+    print(f"[v1] GT: {len(sets)} TFs with ≥{args.min_size} tier-A targets "
+          f"(max_size cap: {args.max_size})")
 
-    res = enrich_all_methods(rankings, sets, n_perm=args.n_perm, min_size=args.min_size)
+    res = enrich_all_methods(rankings, sets, n_perm=args.n_perm,
+                             min_size=args.min_size, max_size=args.max_size)
     res.to_csv(out / "per_tf.csv", index=False)
 
     agg = (res.dropna(subset=["nes"])

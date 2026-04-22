@@ -5,7 +5,8 @@ import pandas as pd
 
 
 def gsea_per_tf(rankings: pd.DataFrame, gt_sets: dict[str, set[str]],
-                n_perm: int = 1000, min_size: int = 5) -> pd.DataFrame:
+                n_perm: int = 1000, min_size: int = 5,
+                max_size: int = 500) -> pd.DataFrame:
     """rankings: long format (regulator,target,score,...). gt_sets: {tf -> {targets}}."""
     from gseapy import prerank                  # lazy
 
@@ -24,6 +25,7 @@ def gsea_per_tf(rankings: pd.DataFrame, gt_sets: dict[str, set[str]],
                 warnings.simplefilter("ignore")
                 res = prerank(rnk=rnk, gene_sets={tf: list(gt_sets[tf])},
                               permutation_num=n_perm, min_size=min_size,
+                              max_size=max_size,
                               no_plot=True, verbose=False).res2d
         except Exception as e:
             out.append({"tf": tf, "nes": None, "pval": None, "error": str(e),
