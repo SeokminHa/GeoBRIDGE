@@ -1,10 +1,178 @@
-# GeoBRIDGE validation — Day 5 status (2026-04-22)
+# GeoBRIDGE validation — Day 5 phase 2 status (2026-04-22 night)
 
-> **Day 2 → Day 3 → Day 4 → Day 5 누적. 아래 "Day 5" 섹션이 최신. 세션 리셋 후 이 섹션부터 읽으면 됨. Day 4 이하는 배경으로만.**
+> **세션 리셋 시 이 Day 5 phase 2 섹션부터 읽으면 됨.**
+> Day 5 phase 1 (실행 전) → phase 2 (결과 얻고 hypothesis 뒤집힘) → pancreas replication + auto-order + diagnostic 이 현재 서버에서 돌아가는 중.
+> Day 4 이하는 배경 참고.
 
 ---
 
-## Day 5 — from "nuisance projection" to direct pseudotime-drift test
+## Day 5 phase 2 — hypothesis reversal: onto-drift, not out-drift
+
+### 핵심 pivot
+
+Day 5 phase 1 가설 (A) 은 "pseudotime drift 가 M 을 dominate 하고 있으니 projecting **out** 하면 lineage TFs 복구" 였음. 실험 결과 이게 **뒤집혔음**:
+
+| mode (V2 ChIP, BM) | GATA2 | KLF1 | NFE2 | NFKB1 | HSF1 | 판정 |
+|---|---:|---:|---:|---:|---:|:---:|
+| `gb_drift_none` | −1.28 | −1.27 | −0.85 | +1.47 | −1.30 | 0/3 |
+| `gb_drift_out_o1` | −1.26 | −1.35 | −0.86 | +1.43 | −1.19 | 0/3 |
+| `gb_drift_out_o2` | −1.14 | −1.35 | −0.90 | +1.41 | −1.28 | 0/3 |
+| `gb_drift_out_o3` | −1.23 | −1.22 | −0.97 | +1.48 | −1.10 | 0/3 |
+| `gb_drift_onto_o1` | −1.20 | **+0.96** | −1.13 | −0.95 | +0.88 | 1/3, NFKB1 깨짐 |
+| **`gb_drift_onto_o2`** | −1.15 | **+1.07** | **+0.83** | +1.12 | +1.19 | **2/3 + stress 2/2 ✓** |
+| `gb_drift_onto_o3` | **+1.14** | **+0.97** | **+1.04** | −1.33 | +0.87 | 3/3 lineage, NFKB1 깨짐 |
+
+**`gb_drift_onto_o2d2` 가 V2 strict rule 통과** — BM 에서 pre-registered criterion 에 의해 처음 성공한 variant.
+
+**올바른 해석**:
+> Correct-sign regulatory signal 은 drift subspace 의 **residual** 에 있는 게 아니라 **drift subspace 안쪽** (low-order pseudotime-aligned subspace) 에 있다.
+
+Production operator 가 top-k SVD 로 `(I − Pk) · M` 을 뽑는 방식은 이 drift-aligned correct-sign component 를 projecting out 해 왔던 것. 즉 기존 operator 의 설계 결정이 lineage 에서 체계적 sign inversion 을 만드는 **직접 원인**.
+
+### 중요 warning 들
+
+1. **V1 (DoRothEA tier-A) replication 약함**: BM V1 에서 `onto_o2` lineage 1/3 (NFE2 +0.86 만) flip. 가능한 해석 = tier-A 가 correlation-biased curation → correlation 과 다른 direction 신호를 불리하게 평가. 하지만 정식 증명 전까지는 yellow flag.
+
+2. **Order sensitivity 실재**: `onto_o2` 는 lineage 2/3 + stress 2/2; `onto_o3` 는 lineage 3/3 BUT NFKB1 (+1.47 → −1.33) 깨짐. Single "best order" 존재 안 함. 모든 TF 동시 만족하는 order 없음 → operator delicate.
+
+3. **GATA2 는 onto_o3 까지 가야 flip** (KLF1 은 o1, NFE2 는 o2, GATA2 는 o3). TF 별 order 민감도 다름. TF 간 hierarchy 로 해석 가능하지만 cherry-picking risk.
+
+4. **BM 한 데이터셋만으로는 결론 불가**. Pancreas replication 결정적.
+
+### Hypothesis (B) 는 아직 살아 있음
+
+(B) velocity phase mismatch — drift 만 조절해서 onto 가 성공한 게 phase 재정렬 효과일 가능성도 있음. 지금 실험 결과는 (A reversed) 와 (B) 둘 다 consistent. 구분하려면 ODE γ-correction 필요하지만 우선순위 낮음 — onto_o2 의 generalization 확인 먼저.
+
+### 지금 서버에서 돌아가는 것 (2026-04-22 late night)
+
+**Terminal A (BM extensions)**:
+- `drift_spectrum_diagnostic.py --config configs/bm.yaml` — per-order ΔX variance explained + V_drift 가 top-k SVD basis 와 얼마나 겹치는지 principal angle. Output: `results/drift_diag/bm/spectrum.csv`, `variance_curve.png`.
+- `run_pt_drift_projection.py --config configs/bm.yaml --auto-order --modes none,onto,out` — 5-fold CV 로 order 자동 선택. `selected_order_bm.npz` 에 CV SSE curve 저장. BM 에서 CV 가 o2 를 찍어야 onto_o2 success 가 "pre-registered 기준으로 올바른 선택" 으로 정당화됨.
+
+**Terminal B (pancreas replication)**:
+- `run_pt_drift_projection.py --config configs/pancreas.yaml --orders 1,2,3 --modes none,onto,out` — BM 과 동일한 operator family.
+- `run_pt_drift_projection.py --config configs/pancreas.yaml --auto-order ...` — pancreas 도 auto-order.
+- `drift_spectrum_diagnostic.py --config configs/pancreas.yaml` — pancreas diagnostic.
+
+**V1/V2 enrichment 양쪽 dataset**. `summarize_drift_eval.py` 로 최종 wide table.
+
+### Pancreas 의 해석 (중요)
+
+Day 2 결과: pancreas 에서는 raw M 이 이미 lineage TFs 양수 (sweep k=0..40 모두 positive). 따라서:
+- "onto_o2 가 pancreas 에서 lineage sign 을 rescue" → 의미 없음 (애초에 rescue 할 대상 없음).
+- 올바른 pancreas 성공 기준: **(a) onto_o2 가 lineage TF sign 을 유지/강화, (b) stress TFs 깨뜨리지 않음, (c) none 대비 overall performance 급락 없음**.
+- 즉 pancreas 는 **replication of rescue 가 아니라 consistency check**. 다른 regime 에서 operator 가 망가지지 않는지 확인.
+
+### Order selection 구현 상세 (committed `ba76f55`)
+
+[run_pt_drift_projection.py](validation/scripts/run_pt_drift_projection.py) 에 `select_pt_order_cv()` 추가. `--auto-order` flag 로 활성화:
+- 5-fold CV on pair reconstruction SSE (held-out).
+- 두 criterion 모두 report: `order_cv` (argmin held-out SSE) 와 `order_elbow` (marginal gain 이 반으로 줄기 시작하는 지점).
+- 두 값이 다르면 warning — "operator fragile".
+- **Naïve train SSE 기준이 아니라는 게 중요**. Train SSE 는 order 에 monotone non-increasing 이라 항상 order_max 찍음. CV 는 이 artifact 를 막음.
+
+### Next-session decision SOP
+
+서버 결과 받아온 뒤 아래 순서로 decision:
+
+**Step 1 — consistency checks (양쪽 dataset 에서 확인)**:
+- `cat results/rankings_drift_auto/{bm,pancreas}/selected_order_*.npz` 로 CV-selected order 비교.
+- `order_cv == order_elbow` 인가? 양쪽 dataset 에서 같은 order 나오는가? 이 중 하나라도 불일치 → operator fragile 확정.
+
+**Step 2 — BM pre-registration 검증**:
+- BM CV 가 `order_cv == 2` 를 찍었다면 → onto_o2 success 가 "post-hoc cherry-pick" 이 아니라 "principled selection" 이 됨. 아니면 cherry-picking risk 남음.
+
+**Step 3 — pancreas consistency**:
+- pancreas 에서 `onto_{CV-selected order}` V1/V2 per_tf 확인.
+- lineage TFs (Pdx1, Isl1, Pax6, Neurod1 — V2), mouse TFs (V1 mouse tier-A) 가 none 대비 catastrophic breakdown 없으면 pass.
+- 깨지면 → BM-only dataset-specific artifact 가능성 높음 → method paper 수축.
+
+**Step 4 — drift basis identity**:
+- `spectrum.csv` 의 `max_cos_svd{k}` 확인.
+- 만약 V_drift 가 top-k SVD basis 와 cos > 0.9 로 거의 같은 subspace → "새로운 operator 아님, production 의 onto mode 에 이름만 다른 것"; 반박해야 함.
+- cos < 0.5 정도면 genuinely distinct subspace — method 주장이 defensible.
+
+**Step 5 — decision tree**:
+| 결과 | 판정 |
+|---|---|
+| BM `onto_cv` 통과 AND pancreas consistency AND drift basis distinct AND CV=elbow | **Scoped positive paper** — "low-order pseudotime-aligned pair-space projection" |
+| BM 통과 AND pancreas 깨짐 | BM-specific, 기각 또는 Datlinger 로 scope test |
+| BM `onto_cv` 실패 (o1 혹은 o3 선택) | operator fragile, post-hoc tuning artifact 가능성 강함 → 기각 후 hypothesis (B) ODE correction 진행 |
+| drift basis ≈ top-k SVD | 새로운 operator 아님, 해석만 달랐던 것 → reframe 불가 |
+
+### 금지 사항 (still binding)
+
+- GNN / IRM / contrastive / learned nuisance NN 전부 여전히 금지.
+- Datlinger 은 pancreas 결과 본 후에 결정.
+- Method redesign (새로운 operator 도입) 금지. `onto`/`out`/`none` + order sweep 이외 안 됨.
+
+### Data caveats (다음 session 시작 시 반드시 확인)
+
+1. BM: `adata.raw is None`, obs QC 컬럼 전무. Raw QC nuisance 재실험 안 됨 (Day 5 phase 1 note 참고).
+2. Pancreas: `configs/pancreas.yaml` 의 ChIP GT 는 **Pdx1, Isl1, Pax6, Neurod1 4 TF 만** — narrow ChEA coverage. stress TF 검증은 V1 mouse tier-A 로만 가능.
+3. `dorothea_tierA.tsv` 와 `dorothea_mouse_tierA.tsv` 가 서버에서 같은 file size (742186). `md5sum` 확인 필요 — 실제 내용 다른지 확실치 않음. BM 은 human tier-A (`dorothea_tierA.tsv`), pancreas 는 mouse tier-A (`dorothea_mouse_tierA.tsv`).
+4. Streaming precompute: BM 은 `max_pairs_per_cell=200` 에서 ~20분 (Day 5 phase 2 실측 1215s). Pancreas 는 n_cells 더 작을 가능성 있어 더 짧을 것.
+
+### Artifacts committed this session (phase 2)
+
+- [validation/scripts/run_pt_drift_projection.py](validation/scripts/run_pt_drift_projection.py) — `select_pt_order_cv()` + `--auto-order` 추가 (commit `ba76f55`).
+- [validation/scripts/drift_spectrum_diagnostic.py](validation/scripts/drift_spectrum_diagnostic.py) — 신규 (variance-per-order + V_drift vs top-k SVD angle).
+- [validation/scripts/summarize_drift_eval.py](validation/scripts/summarize_drift_eval.py) — key-TF wide table (commit `d3dfc41`).
+- [validation/scripts/plot_key_tf_drift.py](validation/scripts/plot_key_tf_drift.py) — per-TF barplot (commit `d3dfc41`).
+- 이 `real_day2.md` Day 5 phase 2 섹션.
+
+### 서버 실행 CLI (현재 돌아가는 것; next session 에서 결과 받으면 됨)
+
+```bash
+cd /data/cb/scratch/seokmin/geobridge/validation && git pull
+source /data/cb/scratch/seokmin/geobridge/venv_gpu/bin/activate
+
+# --- BM auto-order + diagnostic ---
+python scripts/drift_spectrum_diagnostic.py --config configs/bm.yaml \
+    --orders 1,2,3,4,5 --svd-ks 2,5,10,17 --out results/drift_diag/
+python scripts/run_pt_drift_projection.py --config configs/bm.yaml \
+    --auto-order --auto-order-max 5 --modes none,onto,out \
+    --max-pairs-per-cell 200 --force --out results/rankings_drift_auto/
+
+# --- Pancreas full sweep + auto-order + diagnostic ---
+python scripts/run_pt_drift_projection.py --config configs/pancreas.yaml \
+    --orders 1,2,3 --modes none,onto,out \
+    --max-pairs-per-cell 200 --out results/rankings_drift/
+python scripts/run_pt_drift_projection.py --config configs/pancreas.yaml \
+    --auto-order --auto-order-max 5 --modes none,onto,out \
+    --max-pairs-per-cell 200 --force --out results/rankings_drift_auto/
+python scripts/drift_spectrum_diagnostic.py --config configs/pancreas.yaml \
+    --orders 1,2,3,4,5 --svd-ks 2,5,10,17 --out results/drift_diag/
+
+# --- Eval (both datasets) ---
+mkdir -p results/rankings_day5/pancreas
+cp results/rankings/correlation_pancreas.parquet           results/rankings_day5/pancreas/ 2>/dev/null
+cp results/rankings_drift/pancreas/gb_drift_*.parquet      results/rankings_day5/pancreas/
+cp results/rankings_drift_auto/pancreas/gb_drift_*.parquet results/rankings_day5/pancreas/ 2>/dev/null
+cp results/rankings_drift_auto/bm/gb_drift_*.parquet       results/rankings_day5/bm/
+
+python scripts/run_v1_enrichment.py \
+    --rankings "results/rankings_day5/pancreas/*_pancreas.parquet" \
+    --gt data/gt/dorothea_mouse_tierA.tsv --out results/v1_day5/pancreas/
+python scripts/run_v1_enrichment.py \
+    --rankings "results/rankings_day5/pancreas/*_pancreas.parquet" \
+    --gt data/gt/chip_pancreas.tsv --max-size 2000 \
+    --out results/v2_day5/pancreas/ 2>/dev/null
+python scripts/run_v1_enrichment.py \
+    --rankings "results/rankings_day5/bm/*_bm.parquet" \
+    --gt data/gt/chip_subset_bm.tsv --max-size 2000 --out results/v2_day5/bm/
+
+python scripts/summarize_drift_eval.py \
+    --v1 results/v1_day5/bm/per_tf.csv --v2 results/v2_day5/bm/per_tf.csv \
+    --out results/summary_day5/bm/
+python scripts/summarize_drift_eval.py \
+    --v1 results/v1_day5/pancreas/per_tf.csv --v2 results/v2_day5/pancreas/per_tf.csv \
+    --out results/summary_day5/pancreas/
+```
+
+---
+
+## Day 5 phase 1 (archive; 실행 전 가설 + nuisance 결과 재해석)
 
 **핵심 전환**: Day 4의 "nuisance projection" 실험이 겉보기로는 lineage TF 2개를 복구했지만, nuisance feature가 processed X에서 fallback된 상태였고 V_nuis의 top gene loadings를 확인해 보니 그것이 *technical confounder* 가 아니라 *lineage commitment axis* 였다. 그래서 "nuisance 제거" 라는 해석이 무너졌고, 대신 바로 그 lineage axis = **pseudotime drift** 를 projecting out 하는 clean mechanistic test로 넘어간다.
 
