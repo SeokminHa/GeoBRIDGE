@@ -4,6 +4,10 @@ GeoBRIDGE (Geometric Branch-Resolved Inference of Direct Gene-regulatory Edges) 
 
 This repository contains the code for the paper "Inferring Direct Causal Regulation in Branching Lineages via Geometric Deconfounding" (S. Ha and B. Berger).
 
+Notation: the unsigned score called Z (or PRIMARY) in the code is $G_{rg}$ in the paper, and the signed score T is $T_{rg}$.
+
+The forward cell pairs that define Z are ordered pairs of cells $(u, v)$ with diffusion pseudotime difference $0.02 < t_v - t_u \le 0.25$ and at most 40 partners per cell, computed separately from two data-defined roots. Pairing uses pseudotime only and does not test whether two cells lie on the same lineage branch, so a pair can join cells on different branches at similar pseudotime. The near-isochronic pairs used only for the sign are restricted to the same `--stratum-key` group.
+
 ## Requirements
 
 - Python 3.10, scVelo 0.3.4, Scanpy 1.11, NumPy 1.26 (full list in `environment.yml`)
@@ -35,7 +39,7 @@ This also installs the `geobridge` package in `geobridge/`.
 
 4. Read the output.
 
-   - `result.tsv`: unsigned score Z for each regulator-target pair. Higher Z means a stronger conditioned association.
+   - `result.tsv`: unsigned score Z ($G_{rg}$ in the paper) for each regulator-target pair. Higher Z means a stronger conditioned association.
    - `result.d_iso.tsv`: estimated sign of the observational association (+1 positive, -1 negative).
    - `result.T.tsv`: signed score T, the sign times the within-regulator percentile of Z.
 
@@ -60,7 +64,7 @@ The pancreatic dataset in the paper (3,696 cells) takes about 7 minutes and 4.4 
 
 The code used to make the figures in the paper is in the following folders. Each folder has its own README and the result tables needed to redraw the figure.
 
-- `figure2_synthetic/`: synthetic benchmark (Fig. 2)
+- `figure2_synthetic/`: synthetic benchmark (Fig. 2). Fig. 2f (direct edges versus all indirect pairs, distance 2 to 5) is drawn by `figure2_synthetic/scripts/gb_fig2f_dviall_2026_11_05.py`; `gb_fig2f_dvi23_2026_10_29.py` and the 2f panel of `gb_fig2_nopearson_2026_10_30.py` are earlier versions (indirect pairs at distance 2 and 3 only).
 - `figure3_knockout/`: knockout-response evaluation (Fig. 3, Table 1)
 - `figure4_signed/`: signed score with knockout and ChIP data (Fig. 4)
 - `supplementary/`: supplementary figures
