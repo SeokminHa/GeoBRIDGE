@@ -44,5 +44,6 @@ Z (`primary.py`, `score.py`), signed score (`iso.py`), CLI, tests; parity agains
 | S3 | `plot_figS3.py` | `figS3_pairwindow.tsv` | R1; R2 via `gb_e11_pairwindow_2026_11_02.py`, `gb_e11_summarize_2026_11_02.py` |
 | S4 | `plot_figS4.py` | `figS4_amplitude_summary.tsv` | R1; R3 via `gb_dose_sep_2026_11_05.py` |
 | S5, S6 | `plot_figS5_S6.py` | `figS5_S6_ko_direction.tsv`, `figS5_S6_k0.tsv` | R1; R2 via the Fig. 3 chain above |
+| S7 | `plot_figS7.py` | `figS7_sign_synthetic.tsv`, `figS7_sign_knockout.tsv` | R1; R2 via `gb_sign_synth_E13_2026_11_03.py`, `gb_sign_real_E14_2026_11_03.py` |
 
 Details in `supplementary/README.md`; `supplementary/scripts/make_data_tables.py` collects the tables from the compute outputs.

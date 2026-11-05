@@ -25,9 +25,10 @@ This folder contains the code and the summary tables used to make the supplement
    python supplementary/scripts/plot_figS3.py --out out/figS3
    python supplementary/scripts/plot_figS4.py --out out/figS4
    python supplementary/scripts/plot_figS5_S6.py --out out/figS5_S6
+   python supplementary/scripts/plot_figS7.py --out out/figS7
    ```
 
-   Figures S1 to S4 are written as one PNG per panel. Figures S5 and S6 are written as whole figures, with the single panels in `panels/`. The scripts also write the plotted values (means, confidence intervals, p-values) as TSV files next to the PNGs.
+   Figures S1 to S4 are written as one PNG per panel. Figures S5 and S6 are written as whole figures, with the single panels in `panels/`; Figure S7 is written as one PNG. The scripts also write the plotted values (means, confidence intervals, p-values) as TSV files next to the PNGs.
 
 3. (Optional) Recompute the tables. Set up the workspace as described in the repository README (`export GEOBRIDGE_ROOT=/path/to/workspace; bash setup_workspace.sh`), run the compute scripts listed below from `$GEOBRIDGE_ROOT`, then collect the tables:
 
@@ -46,6 +47,7 @@ All synthetic results use the bifurcation benchmark of Fig. 2: 6 GRNs, 4 conditi
 - Fig. S3, cell-pair window and number of pairs. `plot_figS3.py`, table `figS3_pairwindow.tsv` (heatmaps of AUPRC over the lower and upper bound of the pseudotime difference for the 4 conditions; AUPRC for 10, 20, 40 and 80 pairs per cell). Computed by `gb_e11_pairwindow_2026_11_02.py` and `gb_e11_summarize_2026_11_02.py`.
 - Fig. S4, strength of each shared effect. `plot_figS4.py`, table `figS4_amplitude_summary.tsv` (AUPRC and direct-vs-indirect AUROC for the temporal-only and branch-only amplitude series 0, 0.25, 0.5 and 1.0). Paired comparisons are in `figS4_amplitude_paired.tsv`. Computed by `gb_dose_sep_2026_11_05.py` (simulation of the new amplitudes, all methods, then `eval` and `agg`).
 - Fig. S5 and S6, knockout-response prioritization by response direction (AUROC in S5, AUPRC lift in S6). `plot_figS5_S6.py`, tables `figS5_S6_ko_direction.tsv` (KO-upregulated and KO-downregulated responders against non-responders, 95% module-bootstrap intervals with 9,999 draws, Holm correction over the 7 comparators) and `figS5_S6_k0.tsv` (GeoBRIDGE without conditioning, k = 0). These rows come from the Fig. 3 evaluation (`../figure3_knockout/results/fig3_common_v2_UOLD.tsv` and `fig3d_rebuild/full/fig3d_rebuild_table.tsv`); see `../figure3_knockout/README.md` for how they were computed.
+- Fig. S7, sign estimators. `plot_figS7.py`, tables `figS7_sign_synthetic.tsv` (balanced accuracy of each sign estimator against the true edge sign on the synthetic benchmark; the figure uses the bifurcation rows) and `figS7_sign_knockout.tsv` (agreement with knockout direction among responders, equal-weight mean over five TFs). Computed by `gb_sign_synth_E13_2026_11_03.py` and `gb_sign_real_E14_2026_11_03.py`. The knockout endpoints overlap those of Fig. 4, so this panel is not independent validation.
 - Table S1 (single-cell datasets) and Table S2 (knockout datasets) list public data only. Accession numbers and download scripts are in `../data/README.md`.
 
 ## Notes

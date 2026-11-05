@@ -3,7 +3,7 @@
 Classes (D+, D-, N, U-, U+; called levels L1 to L5 in the scripts): KO-down with / without ChIP binding, non-responders, KO-up without / with binding.
 Signed score T = d_iso x F_r(Z): d_iso = sign of the **unconditioned (k=0) near-isochronic concordance** (pairs with |dpseudotime| <= 0.02 inside the same annotated stratum;
 3 sampled pair sets, seeds 42/43/44, both roots; stratum = CARDIACV `embryo`, PANC `clusters`), F_r = within-regulator percentile of the unsigned score Z, called PRIMARY in the scripts (`geobridge/src/geobridge/iso.py` is the package form; production scripts: `gb_iso_pilot.py`, `gb_iso_lib.py`).
-In code, the Fig 4 score is `T_iso = sign(iso_C) * abs(Z|d4)` (`gb_kochip_audit_lib.load_unit`); `Z|d4` is a stored column whose absolute value equals F_r (the code asserts this; its sign comes from an alternative sign estimate, `d4`, that is not used in Fig. 4), so `T_iso` = sign(iso_C) x F_r. The sign estimator was chosen after comparing alternatives against KO directions, so the analysis is exploratory (manuscript S1.5).
+In code, the Fig 4 score is `T_iso = sign(iso_C) * abs(Z|d4)` (`gb_kochip_audit_lib.load_unit`); `Z|d4` is a stored column whose absolute value equals F_r (the code asserts this; its sign comes from an alternative sign estimate, `d4`, that is not used in Fig. 4), so `T_iso` = sign(iso_C) x F_r. Comparisons with alternative sign estimators are in Supplementary Fig. S7; the signed analysis is exploratory (manuscript S1.5).
 Statistics shown: class means with descriptive 95% **gene**-bootstrap intervals; one-sided Mann-Whitney between adjacent classes, Holm over the 6 contrasts per TF (4 drawn);
 ordered-trend test over the five classes with a null-imposed **control-module** cluster bootstrap (B = 9,999), Holm over the 3 TFs.
 
@@ -42,4 +42,4 @@ The `geobridge` CLI (`../geobridge`) computes the same signed score T. On pancre
 Trend bootstrap `default_rng([20261029, 41, n_modules])`; gene-bootstrap intervals reproduce `gb_kochip_audit.py` (`rng_for(unit, 'lev', i)`, global `SEED = 20261015`); near-isochronic pair sampling seeds 42/43/44 with `default_rng([seed, root_idx])`.
 
 ## Caveats stated in the manuscript (keep them when reusing)
-No direct-regulation claim on real data; KO and ChIP only label genes for evaluation; the class ordering is descriptive; the sign rule was selected using KO directions.
+No direct-regulation claim on real data; KO and ChIP only label genes for evaluation; the class ordering is descriptive. The sign is the unconditioned near-isochronic concordance; its comparison with alternative sign estimators on synthetic and knockout data is in Supplementary Fig. S7 (`../supplementary/`). Because those knockout endpoints overlap the Fig. 4 endpoints, the signed analyses are exploratory.
