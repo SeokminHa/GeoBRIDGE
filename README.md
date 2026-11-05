@@ -4,7 +4,7 @@ GeoBRIDGE (Geometric Branch-Resolved Inference of Direct Gene-regulatory Edges) 
 
 This repository contains the code for the paper "Inferring Direct Causal Regulation in Branching Lineages via Geometric Deconfounding" (S. Ha and B. Berger).
 
-Notation: the unsigned score called Z (or PRIMARY) in the code is $G_{rg}$ in the paper, and the signed score T is $T_{rg}$.
+Notation: the unsigned score is $G_{rg}$ in the paper. For historical reasons the code and output files call the same score `Z` (or `PRIMARY`); these names denote one quantity, not different scoring methods. The signed score T is $T_{rg}$.
 
 The forward cell pairs that define Z are ordered pairs of cells $(u, v)$ with diffusion pseudotime difference $0.02 < t_v - t_u \le 0.25$ and at most 40 partners per cell, computed separately from two data-defined roots. Pairing uses pseudotime only and does not test whether two cells lie on the same lineage branch, so a pair can join cells on different branches at similar pseudotime. The near-isochronic pairs used only for the sign are restricted to the same `--stratum-key` group.
 

@@ -1,5 +1,7 @@
 # geobridge reproduction package
 
+Notation: the unsigned score is $G_{rg}$ in the paper. For historical reasons the code and output files call the same score `Z` (or `PRIMARY`); these names denote one quantity, not different scoring methods.
+
 ## What the score consumes (precise)
 - Raw input: an untreated h5ad with integer **spliced** and **unspliced** count layers (+ species).
 - Vendored canonical preprocessing (scVelo `moments` on the fixed kNN graph) turns these into **smoothed moments Ms (spliced) and Mu (unspliced)**, a 30-PC state embedding `X_pca`, and stored cell pairs (two pseudotime roots `dc1_min`, `dc1_max`, with per-cell pseudotime `pt`).
@@ -9,9 +11,9 @@
 ## Outputs of `geobridge score`
 | output | file | definition |
 |---|---|---|
-| Z (unsigned score, called PRIMARY in the scripts) | `--out` | min over the 2 roots of mean over depths k=0..8 of z(abs signed-concordance S_U(k)), z within each regulator's observational universe (all targets except the regulator itself whose score is finite at both roots and every depth; forward pairs). NaN = unsupported (too little data for a value, see below) / outside universe / own gene |
+| Z (unsigned score; $G_{rg}$ in the paper, called PRIMARY in the scripts) | `--out` | min over the 2 roots of mean over depths k=0..8 of z(abs signed-concordance S_U(k)), z within each regulator's observational universe (all targets except the regulator itself whose score is finite at both roots and every depth; forward pairs). NaN = unsupported (too little data for a value, see below) / outside universe / own gene |
 | d_iso (sign of the observational association) | `<out-stem>.d_iso.tsv` (needs `--stratum-key`) | sign of S0 = N0/D0 (Ms of regulator vs Mu of target, no projection) on **isochronic pairs**: same stratum, abs(dpt) <= `--iso-window`; S0 averaged over 3 seeds then over the 2 roots. +1/-1; **0 = S0 exactly 0 (no sign); NaN = unsupported (too few pairs or zero denominator, see below)** |
-| T (signed composite) | `<out-stem>.T.tsv` | T = d_iso * F_r(Z), F_r = (midrank-0.5)/m over the m finite Z of that regulator's row. NaN if Z or d_iso is NaN; 0 where d_iso = 0 |
+| T (signed score; $T_{rg}$ in the paper) | `<out-stem>.T.tsv` | T = d_iso * F_r(Z), F_r = (midrank-0.5)/m over the m finite Z of that regulator's row. NaN if Z or d_iso is NaN; 0 where d_iso = 0 |
 
 d_iso = +1 means a positive and -1 a negative observational association between the regulator's spliced and the target's unspliced moments. Neither d_iso nor T identifies direct activation or repression.
 

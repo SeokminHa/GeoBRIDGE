@@ -34,7 +34,7 @@ Schematic; drawn by hand, no code.
 | 4b class means, gene-bootstrap CI, adjacent MWU (Holm-6), trend P (Holm-3) | `gb_fig4ab_polish_2026_10_30.py` <- `results/kochip_audit_2026_10_15/{p1_levels,fig19_contrast_pvalues}.tsv` (<- `gb_kochip_audit.py` stages `aux,p1,p1b`, `gb_kochip_fig_p.py` <- `T_<unit>.tsv` from `gb_grand_v3d_dumpT.py`, `features_<unit>.tsv` from `gb_iso_pilot.py score`, labels from `gb_chip5_sens.py`) and `results/fig4b_trend.tsv` (<- `gb_fig4_style_2026_10_29.py` <- `gb_fig4_bind_prod_k0_2026_10_29.py`) | R1; R2 for stages other than `p1`; stage `p1` (-> `p1_levels.tsv`) can be re-run from the shipped per-gene tables and is expected to reproduce the shipped table |
 
 ## Package (`geobridge/`)
-Z (`primary.py`, `score.py`), signed score (`iso.py`), CLI, tests; parity against the stored paper outputs is documented in `geobridge/README.md` (PANC RFX6: S0 max abs diff 1.6e-15; T Spearman 1.0000). The real-data parity tests need `GB_REPO` and are skipped otherwise.
+Z (= $G_{rg}$ in the paper; `primary.py`, `score.py`), signed score (`iso.py`), CLI, tests; parity against the stored paper outputs is documented in `geobridge/README.md` (PANC RFX6: S0 max abs diff 1.6e-15; T Spearman 1.0000). The real-data parity tests need `GB_REPO` and are skipped otherwise.
 
 ## Supplementary figures
 | Figure | Plot script (`supplementary/scripts/`) | Tables (`supplementary/data/`) | Level |
