@@ -2,7 +2,7 @@
 
 Design: 6 GRNs (seeds 501-506; 100 genes, 32 candidate regulators, exactly 240 direct edges, 3,168 regulator-target pairs, prevalence 0.0758) x 2 topologies (bifurcation = Fig. 2; tree = SI)
 x 2 simulations x 4 conditions (C0 none, C1 temporal input A, C2 branch input B, C3 A+B) = **96 datasets**. 1,200 cells per bifurcation dataset (300 per cell type, 4 types), UMI counts at depth 10.
-Methods: GeoBRIDGE (PRIMARY, k=0..8, root-min), Velorama (rt0 configuration), FastTENET, GENIE3, GRNBoost2, PIDC, RegDiffusion, DeepSEM (+ |Pearson|, which was dropped from the final figure).
+Methods: GeoBRIDGE (the unsigned score Z, called PRIMARY in the scripts; k=0..8, minimum over the two roots), Velorama (rt0 configuration), FastTENET, GENIE3, GRNBoost2, PIDC, RegDiffusion, DeepSEM (+ |Pearson|, which was dropped from the final figure).
 Statistics (in `scripts/gb_fig2_nopearson_2026_10_30.py`): per-dataset metric -> mean over 2 sims -> per GRN; mean over 6 GRNs; 95% t interval; two-sided paired t-test over the 6 GRNs, Holm over the 7 comparators per condition and metric.
 
 Design (as implemented; original spec not archived): `DESIGN.md`.
@@ -32,13 +32,13 @@ Both write only into the given output folder.
 
 ### Quick reproduction of Fig. 2a-c from ONE dataset (C3, GRN 501, bifurcation, sim 1; one CPU host, no GPU, no comparators) -- untested end-to-end in this release
 ```
-export GEOBRIDGE_ROOT=$PWD/ws; bash setup_workspace.sh          # needs SERGIO (patched, see below) at $GEOBRIDGE_ROOT/SERGIO and GB_JUPYTER_ENV_BIN
+export GEOBRIDGE_ROOT=$PWD/ws; bash setup_workspace.sh          # needs SERGIO (patched, see below) at $GEOBRIDGE_ROOT/SERGIO and GB_JUPYTER_ENV_BIN (bin directory of the main environment)
 cd $GEOBRIDGE_ROOT
 python scratch/gb_tf32rep_fast_2026_10_22.py ph 501 bifurcation         # roster + hidden-driver design (prep + harvest); grn_seeds.json is linked by setup_workspace.sh
 python scratch/gb_tf32rep_fast_2026_10_22.py run 501 bifurcation C3 1    # SERGIO -> UMI -> canonical preprocessing -> GeoBRIDGE; writes raw/counts_truth.npz
 python scratch/gb_fig2_schematic_2026_10_28.py out_fig2abc              # panels a-c pool every C3 dataset found under results/sergio_tf32rep_2026_10_22/g*/bifurcation/C3/ (here: just this one, so b/c are noisier than the paper's 12-dataset mean)
 ```
-Cost depends on the machine (GeoBRIDGE run uses 8 threads). The schematic script also draws d-f from the shipped `TABLE.tsv`.
+Cost depends on the machine (GeoBRIDGE run uses 8 threads). The schematic script also draws d, e and an earlier version of f (direct vs 2- and 3-hop pairs) from the shipped `TABLE.tsv`; the paper's Fig. 2f comes from `gb_fig2f_dviall_2026_11_05.py`.
 
 ### Launching the full queue without ssh
 `GB_CPU_HOSTS="localhost:2" GB_GPU_HOSTS="localhost:0" bash scripts/gb_tf32rep_launch_fast_2026_10_22.sh` -- the host name `localhost` runs the worker directly (no ssh); any other name still uses `ssh <host>`.
@@ -51,10 +51,10 @@ velorama env (`GB_VELORAMA_BIN`), gb_sota env (`GB_GB_SOTA_BIN`, for FastTENET /
    (shipped copies: `results/FEASIBILITY.md`, `results/grn_seeds.json`).
 2. Generation + GeoBRIDGE scoring + comparators, via the persistent queue (task locks in `_locks/`, completion in `_done/`):
    `scripts/gb_tf32rep_launch_fast_2026_10_22.sh` (see header; set `GB_CPU_HOSTS`, `GB_GPU_HOSTS`) runs, per host,
-   `gb_tf32rep_fast_2026_10_22.py worker <slots>` (= `ph`: GRN roster + frozen half orientation; `run`: SERGIO simulation -> UMI counts -> canonical preprocessing -> GeoBRIDGE),
+   `gb_tf32rep_fast_2026_10_22.py worker <slots>` (= `ph`: GRN roster + fixed half orientation; `run`: SERGIO simulation -> UMI counts -> canonical preprocessing -> GeoBRIDGE),
    `gpuworker <gpu> velorama,deepsem,regdiffusion,fasttenet`, and `cpuext <slots> genie3,grnboost2,pidc,pearson`.
    Single-dataset form: `python scratch/gb_tf32rep_fast_2026_10_22.py run 501 bifurcation C3 1`.
-   Generator: `gb_pilot_AB_tf32rep_fast_2026_10_22.py` (the records of the 96 datasets carry its sha256 `1e12a1b6...` as `script_sha256`; the non-"fast" `gb_pilot_AB_tf32rep_2026_10_22.py` is imported for `generate_grn`/graph statistics only).
+   Generator: `gb_pilot_AB_tf32rep_fast_2026_10_22.py` (the records of the 96 datasets carry its sha256 as `script_sha256`; the non-"fast" `gb_pilot_AB_tf32rep_2026_10_22.py` is imported for `generate_grn`/graph statistics only).
 3. `python scratch/gb_tf32rep_fast_2026_10_22.py eval` -> `TABLE.tsv` (864 rows = 96 datasets x 9 methods), `COMPLETENESS.md`, `INVALID.tsv`; `... analyze` -> `ANALYSIS.md` (GRN-level contrasts, exact sign-flip, Holm-7).
 4. Direct-vs-indirect per-pair tables: `python scratch/gb_dvi_audit3_2026_10_29.py results/signed/dvi_audit3_2026_10_29/full` then `python scratch/gb_dvi_audit3_agg_2026_10_29.py results/signed/dvi_audit3_2026_10_29/full` -> `agg/D1_vs_D2D3_datasets.tsv`.
 5. Fig. 2f values from the per-pair tables: `mkdir -p out_fig2f && cp <repo>/figure2_synthetic/results/Fig2_values_holm7.tsv out_fig2f/REF_Fig2_values_holm7.tsv && python scratch/gb_fig2f_dviall_2026_11_05.py out_fig2f` (asserts that its 2-/3-hop values equal the reference, then writes `Fig2f_DvIall_values.tsv`, `dviall_per_dataset.tsv` and the panel).
@@ -67,6 +67,6 @@ Output locations: steps 1, 3 and 4 write into `$GEOBRIDGE_ROOT/results/...` by d
 * SERGIO simulation: `np.random.seed(1000*grn + sim)` immediately before `sim.simulate()` (sim in {1,2}); master-regulator basal rates `RandomState(grn+5000)`.
 * Hidden-input loadings: A `RandomState(777+grn)`, B `RandomState(31337+grn)`.
 * UMI rendering (depth 10): dedicated `np.random.Generator(PCG64([20260924, grn, sim, round(1e6*lam)]))` (not the global RNG).
-* Preprocessing/pairs: scanpy PCA/neighbors `random_state` and pair sampling `pair_seed` are read from the frozen `GEOBRIDGE_PREPROCESS_V1.json` (forward-pair sampling uses the frozen `pair_seed`; near-isochronic sign pairs use seeds 42/43/44 with `default_rng([seed, root])`, per `geobridge/README.md`).
+* Preprocessing/pairs: scanpy PCA/neighbors `random_state` and pair sampling `pair_seed` are read from the fixed `GEOBRIDGE_PREPROCESS_V1.json` (forward-pair sampling uses its `pair_seed`; near-isochronic sign pairs use seeds 42/43/44 with `default_rng([seed, root])`, per `geobridge/README.md`).
 * Comparators: Velorama CLI `-s 0` (numpy+torch seeded in `train.py`; `-vm stochastic` scVelo velocity; deterministic given input); RegDiffusion `seed=0`; DeepSEM `np/torch/cuda seed 0`; GENIE3/GRNBoost2 arboreto `seed=0`; PIDC has no RNG; FastTENET: the paper's FastTENET results (the shipped numbers) came from runs without an explicit seed. The released wrapper (`gb_sota_ext.run_fasttenet`, `gb_topo_adv_gpu.run_tenet`) sets seed = 0 (`np.random.seed(0)`, `torch.manual_seed(0)`) before `run`, so reruns are repeatable but may differ slightly from the paper's FastTENET numbers.
 * Not guaranteed: bitwise identity on other hardware (BLAS thread count, GPU atomics), and scanpy-PCA differences (relative ~1e-5 in the PANC rebuild, see `geobridge/README.md`).

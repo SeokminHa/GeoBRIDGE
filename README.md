@@ -23,7 +23,7 @@ This also installs the `geobridge` package in `geobridge/`.
 
 1. Prepare the data. GeoBRIDGE takes an AnnData file (`.h5ad`) with integer `spliced` and `unspliced` count layers from an unperturbed differentiation dataset.
 
-2. Choose the regulators. Give a comma-separated list of transcription factors. In the paper we used catalogue transcription factors detected in at least 5% of cells.
+2. Choose the regulators. Give a comma-separated list of transcription factors. In the paper, the regulator list consisted of catalogue transcription factors with nonzero spliced counts in at least 5% of cells; the package takes the list as input.
 
 3. Run GeoBRIDGE.
 
@@ -54,7 +54,7 @@ PYTHONPATH=src pytest tests
 
 This writes `out.tsv`, `out.d_iso.tsv` and `out.T.tsv`. Without the installed package, use `PYTHONPATH=src python -m geobridge.cli score ...` instead of `geobridge score ...`.
 
-The pancreatic dataset in the paper (3,696 cells) takes about 6 minutes and 4.4 GB of memory. More details are in `geobridge/README.md`.
+The pancreatic dataset in the paper (3,696 cells) takes about 7 minutes and 4.4 GB of memory. More details are in `geobridge/README.md`.
 
 ## Figures
 

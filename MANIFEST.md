@@ -4,8 +4,7 @@ Levels (how far each panel can be reproduced): **R1** = re-plot from tables ship
 Paths are relative to the repository; scripts are run from `$GEOBRIDGE_ROOT` after `setup_workspace.sh` as `python scratch/<name>`.
 
 ## Figure 1 (schematic)
-| Panel | Script chain | Level / note |
-|---|---|---|
+Schematic; drawn by hand, no code.
 
 ## Figure 2 (SERGIO TF32REP, `figure2_synthetic/`)
 | Panel | Script chain | Level |
@@ -20,22 +19,22 @@ Paths are relative to the repository; scripts are run from `$GEOBRIDGE_ROOT` aft
 | Panel | Script chain | Level |
 |---|---|---|
 | 3a UMAP + velocity streams | `gb_fig3a_umap_labels_2026_10_30.py` <- `results/canonical_2026_09_18/{PANC,BONEMARROW,CARDIACV}_canonical.h5ad` <- `gb_canonical.py build` / `gb_canonical_cardiac.py build` <- raw data (`data/README.md`) | R3 |
-| 3b AUROC, 3c AUPRC lift (4 endpoints + equal-system mean; k=0 bar) | `gb_fig3bc_panels_2026_10_30.py` <- `results/fig3_common_v2_UOLD.tsv` (<- `gb_fig3_common_v2_2026_10_28.py --B 9999 --uold` <- `gb_fig3_ugb_v2_velalltargets_2026_10_26.py` + `results_scripts/.../fig3_ugb_v2_noF2_velalltargets.py` <- cached `ep_<stem>.vec.npz` (written by `gb_meta_nascent_sutil.py`; the 4 paper endpoints are shipped in `figure3_knockout/results/evaluator_inputs/`), truth tables `gb_truth_tables_2026_10_28.py`) and `results/fig3d_rebuild/full/fig3d_rebuild_table.tsv` (<- `gb_fig3d_rebuild_2026_10_29.py --B 9999`) | R1; R2 recompute (needs the remaining server-side inputs; internal pins skippable with `GB_SKIP_PREFLIGHT=1`) |
+| 3b AUROC, 3c AUPRC lift (4 endpoints + equal-system mean; k=0 bar) | `gb_fig3bc_panels_2026_10_30.py` <- `results/fig3_common_v2_UOLD.tsv` (<- `gb_fig3_common_v2_2026_10_28.py --B 9999 --uold` <- `gb_fig3_ugb_v2_velalltargets_2026_10_26.py` + `results_scripts/.../fig3_ugb_v2_noF2_velalltargets.py` <- cached `ep_<stem>.vec.npz` (written by `gb_meta_nascent_sutil.py`; the 4 paper endpoints are shipped in `figure3_knockout/results/evaluator_inputs/`), truth tables `gb_truth_tables_2026_10_28.py`) and `results/fig3d_rebuild/full/fig3d_rebuild_table.tsv` (<- `gb_fig3d_rebuild_2026_10_29.py --B 9999`) | R1; R2 recompute (needs intermediate files that are not included; source-file hash checks skippable with `GB_SKIP_PREFLIGHT=1`) |
 | 3d CV R^2 (pseudotime; terminal identity beyond pseudotime) | `gb_fig3d_panels_2026_10_30.py` <- `results/fig3d_rebuild/devstructure/panc_devstructure.tsv` <- `gb_fig3d_devstructure_2026_10_29.py` <- canonical PANC fixture + stored pairs | R1; R2 |
 | 3e pseudotime-difference energy captured (k=1..10) | same plot script <- `results/fig3d_rebuild/geom30/geom30_pooled.tsv` <- `gb_fig3d_geom30_2026_10_29.py` | R1; R2 |
 | 3f terminal-identity energy captured | same | R1; R2 |
-| 3g RFX6 AUROC vs aggregation depth | same plot script <- `results/fig3d_rebuild/depth_multi_B9999/panc/depth_multi.tsv` <- `gb_fig3d_depth_multi_2026_10_29.py --B 9999` <- `results/signed/PANC.npz` (`gb_signed_cache.py`) + frozen evaluator rows | R1; R2 |
-| Table 1 (RFX6 endocrine marker rank percentiles, 10 KO-responsive of 53 markers) | `gb_table1_panc_markers_2026_10_29.py --B 9999` -> `results/table1/table1_main_rows.tsv`, `table1_wholeset_metrics.tsv`; marker sets: CellMarker_2024 via Enrichr; typeset `results/table1/TABLE1_PANC_endocrine_markers_2026_10_30.tex` (hand-typeset; `table1/make_table1_tex.py` regenerates the rows from the TSVs, verified to agree with the .tex on all values) | R1 for numbers and rows (`python table1/make_table1_tex.py`); R2 recompute |
+| 3g RFX6 AUROC vs aggregation depth | same plot script <- `results/fig3d_rebuild/depth_multi_B9999/panc/depth_multi.tsv` <- `gb_fig3d_depth_multi_2026_10_29.py --B 9999` <- `results/signed/PANC.npz` (`gb_signed_cache.py`) + stored evaluator rows | R1; R2 |
+| Table 1 (RFX6 endocrine marker rank percentiles, 10 KO-responsive of 53 markers) | `gb_table1_panc_markers_2026_10_29.py --B 9999` -> `results/table1/table1_main_rows.tsv`, `table1_wholeset_metrics.tsv`; marker sets: CellMarker_2024 via Enrichr; typeset `results/table1/TABLE1_PANC_endocrine_markers_2026_10_30.tex` (hand-typeset; `table1/make_table1_tex.py` regenerates the rows from the TSVs and agrees with the .tex on all numeric values; the subtype order in the Identity column of the .tex was edited by hand) | R1 for numbers and rows (`python table1/make_table1_tex.py`); R2 recompute |
 | Table (KO datasets) | counts from `results/fig3_bc_holm7.tsv`; labels: `gb_truth_tables_2026_10_28.py`, `cardiac_truth_build.py`, `data/pancreas_rfx6_ko/*` | R1 (counts) / R3 |
 
 ## Figure 4 (`figure4_signed/`)
 | Panel | Script chain | Level |
 |---|---|---|
 | 4a class schematic | `gb_fig4ab_polish_2026_10_30.py` (drawn) | R1 |
-| 4b class means, gene-bootstrap CI, adjacent MWU (Holm-6), trend P (Holm-3) | `gb_fig4ab_polish_2026_10_30.py` <- `results/kochip_audit_2026_10_15/{p1_levels,fig19_contrast_pvalues}.tsv` (<- `gb_kochip_audit.py` stages `aux,p1,p1b`, `gb_kochip_fig_p.py` <- `T_<unit>.tsv` from `gb_grand_v3d_dumpT.py`, `features_<unit>.tsv` from `gb_iso_pilot.py score`, labels from `gb_chip5_sens.py`) and `results/fig4b_trend.tsv` (<- `gb_fig4_style_2026_10_29.py` <- `gb_fig4_bind_prod_k0_2026_10_29.py`) | R1; R2 for stages other than `p1`; stage `p1` (-> `p1_levels.tsv`) re-run from the shipped per-gene tables and reproduces the shipped table exactly (R1.5) |
+| 4b class means, gene-bootstrap CI, adjacent MWU (Holm-6), trend P (Holm-3) | `gb_fig4ab_polish_2026_10_30.py` <- `results/kochip_audit_2026_10_15/{p1_levels,fig19_contrast_pvalues}.tsv` (<- `gb_kochip_audit.py` stages `aux,p1,p1b`, `gb_kochip_fig_p.py` <- `T_<unit>.tsv` from `gb_grand_v3d_dumpT.py`, `features_<unit>.tsv` from `gb_iso_pilot.py score`, labels from `gb_chip5_sens.py`) and `results/fig4b_trend.tsv` (<- `gb_fig4_style_2026_10_29.py` <- `gb_fig4_bind_prod_k0_2026_10_29.py`) | R1; R2 for stages other than `p1`; stage `p1` (-> `p1_levels.tsv`) can be re-run from the shipped per-gene tables and is expected to reproduce the shipped table |
 
 ## Package (`geobridge/`)
-Z (`primary.py`, `score.py`), signed score (`iso.py`), CLI, tests; parity against stored internal artifacts is documented in `geobridge/README.md` (PANC RFX6: S0 max abs diff 1.6e-15; T Spearman 1.0000). The real-data parity tests need `GB_REPO` and are skipped otherwise.
+Z (`primary.py`, `score.py`), signed score (`iso.py`), CLI, tests; parity against the stored paper outputs is documented in `geobridge/README.md` (PANC RFX6: S0 max abs diff 1.6e-15; T Spearman 1.0000). The real-data parity tests need `GB_REPO` and are skipped otherwise.
 
 ## Supplementary figures
 | Figure | Plot script (`supplementary/scripts/`) | Tables (`supplementary/data/`) | Level |

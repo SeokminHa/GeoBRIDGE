@@ -34,7 +34,7 @@ The score itself uses only spliced `Ms` and unspliced `Mu` moments and a 30-PC e
 Orthology: MGI `HOM_MouseHumanSequence.rpt`. Annotation sets for Table 1: CellMarker 2.0 (Hu et al. 2023) via the Enrichr library `CellMarker_2024` (primary) and `PanglaoDB_Augmented_2021` (sensitivity).
 TF catalogues: Lambert 2018 human TF list (shipped, `common/GB_real_v2/`); mouse catalogue as referenced in `common/GEOBRIDGE_PREPROCESS_V1.json`.
 
-`download_ko_chip_annotation.sh` collects the GEO/Zenodo/UCSC/MGI/Enrichr files above (unverified commands; check md5/sha against the sha256 values printed in the internal receipts if available).
+`download_ko_chip_annotation.sh` collects the GEO/Zenodo/UCSC/MGI/Enrichr files above (unverified commands; check md5/sha against the sha256 values in the run receipts if available; the receipts are not included).
 
 ## Synthetic data
 

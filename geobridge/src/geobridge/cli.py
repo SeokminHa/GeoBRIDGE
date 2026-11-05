@@ -5,14 +5,14 @@ from .score import score_fixture
 
 def main():
     p = argparse.ArgumentParser(prog="geobridge"); sub = p.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("score", help="GeoBRIDGE scores from a raw untreated h5ad (integer spliced/unspliced layers), end to end")
-    s.add_argument("h5ad"); s.add_argument("--regulators", required=True, help="comma-separated symbols (in the TF-retained gene set)")
+    s = sub.add_parser("score", help="GeoBRIDGE scores from an h5ad of unperturbed cells: raw integer spliced/unspliced counts (preprocessed here), or an already preprocessed dataset with --canonical --pairs")
+    s.add_argument("h5ad"); s.add_argument("--regulators", required=True, help="comma-separated regulator gene symbols; each must be a gene kept in the (preprocessed) data")
     s.add_argument("--species", choices=["mouse", "human"], help="required for raw input")
     s.add_argument("--canonical", action="store_true", help="input is already a canonical fixture; needs --pairs")
     s.add_argument("--pairs", help="canonical_pairs.npz (with --canonical)")
     s.add_argument("--workdir", default="gb_work"); s.add_argument("--out", required=True, help="TSV regulator x target unsigned score Z (NaN = unsupported / outside universe)")
-    s.add_argument("--profiles", help="optional .npz of per-root U/X |S| depth profiles k=0..30")
-    s.add_argument("--stratum-key", help="obs column defining iso strata (embryo/sample/cluster); 'NONE' = one stratum. Enables d_iso and T outputs (needs pairs pt)")
+    s.add_argument("--profiles", help="optional .npz with the raw |S| values at each depth k=0..30, per pseudotime root and target channel (U = unspliced, X = spliced)")
+    s.add_argument("--stratum-key", help="obs column (e.g. embryo, sample, cluster) whose groups define the strata for the near-isochronic pairs used by d_iso (both cells of a pair in the same group); 'NONE' = one stratum. Enables d_iso and T outputs (needs pairs pt)")
     s.add_argument("--iso-window", type=float, default=0.02, help="iso pair window |dpt| <= w (paper: 0.02)")
     s.add_argument("--seed", type=int, default=42, help="first iso-pair sampling seed; seeds s,s+1,s+2 are averaged (paper: 42, 43, 44). Z itself is deterministic")
     a = p.parse_args(); regs = a.regulators.split(",")

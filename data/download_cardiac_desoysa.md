@@ -1,6 +1,6 @@
 # De Soysa et al. 2019 (GEO GSE126128) -- how the heart velocity input was produced in this repository
 
-The PRIMARY cardiac build is `CARDIACV` (velocyto spliced/unspliced counts; gb_canonical_cardiac.py registers it as `CARDIACV`).
+The main cardiac build is `CARDIACV` (velocyto spliced/unspliced counts; gb_canonical_cardiac.py registers it as `CARDIACV`).
 Nine WT 10x libraries (E7.75 WT1-5, E8.25 WT1-2, E9.25 WT1-2); 36,753 GEO-passed cells.
 
 | run | library name (BAM file prefix) | GEM group | cells |

@@ -1,11 +1,11 @@
-"""REAL-DATA canonical parity (PANC): package vs stored production arrays. Needs the server repo (GB_REPO)."""
+"""REAL-DATA canonical parity (PANC): package vs stored production arrays. Needs GB_REPO with the stored real-data artifacts."""
 import os, sys, numpy as np, anndata as ad, pytest
 from geobridge import pipeline
 from geobridge.score import channel_absS, score_fixture, observational_universe
 import geobridge.primary as P
 REPO = os.environ.get("GB_REPO", "")
 CAN = f"{REPO}/results/canonical_2026_09_18"; ST = f"{REPO}/results/cop_alignment/scores/PANC.npz"
-pytestmark = pytest.mark.skipif(not os.path.exists(ST), reason="DIAGNOSED 2026-10-09: first divergence = sc.pp.pca (X_pca rel 1.8e-5, deterministic across thread counts, not reproduced by any solver/dtype variant); normalisation, HVG set, Ms, Mu, velocity, X bitwise identical; code+config shas identical. Downstream: DPT pt 1.6e-4, pair overlap 97.2%/99.4%, PRIMARY Spearman vs stored 0.99997 (RFX6, n=3212, same support)")
+pytestmark = pytest.mark.skipif(not os.path.exists(ST), reason="requires GB_REPO with the stored real-data artifacts")
 
 
 def test_vendor_intact():
@@ -37,7 +37,7 @@ def test_primary_and_universe_vs_stored():
         assert np.array_equal(prim[j], ref, equal_nan=True)
 
 
-@pytest.mark.skipif(not os.environ.get("GB_E2E"), reason="DIAGNOSED 2026-10-09: first divergence = sc.pp.pca (X_pca rel 1.8e-5, deterministic across thread counts, not reproduced by any solver/dtype variant); normalisation, HVG set, Ms, Mu, velocity, X bitwise identical; code+config shas identical. Downstream: DPT pt 1.6e-4, pair overlap 97.2%/99.4%, PRIMARY Spearman vs stored 0.99997 (RFX6, n=3212, same support)")
+@pytest.mark.skipif(not os.environ.get("GB_E2E"), reason="requires GB_E2E=1 and GB_REPO with the stored real-data artifacts")
 @pytest.mark.xfail(reason="DIAGNOSED 2026-10-09: first divergence = sc.pp.pca (X_pca rel 1.8e-5, deterministic across thread counts, not reproduced by any solver/dtype variant); normalisation, HVG set, Ms, Mu, velocity, X bitwise identical; code+config shas identical. Downstream: DPT pt 1.6e-4, pair overlap 97.2%/99.4%, PRIMARY Spearman vs stored 0.99997 (RFX6, n=3212, same support)", strict=False)
 def test_end_to_end_from_raw(tmp_path):
     fx, pr = pipeline.preprocess(f"{REPO}/data/Pancreas/endocrinogenesis_day15.h5ad", str(tmp_path), "mouse", "PANC")

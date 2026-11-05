@@ -1,9 +1,9 @@
-# Main environment (versions read from the lab server env on 2026-10-09 / 2026-11-04; python 3.10.0).
+# Main environment (versions of the environment used for the paper, recorded 2026-10-09 / 2026-11-04; python 3.10.0).
 # Two further environments are needed ONLY for Fig. 2 / Fig. 3 comparator runs (see figure2_synthetic/README.md):
 #   velorama env : python 3.10, torch==1.13.0, velorama==0.0.3 (pip install from https://github.com/rs239/velorama, commit e315c5434387750250932cd594e4874e1690620c),
 #                  scvelo==0.3.4, scanpy==1.11.5, cellrank==2.0.7, numpy==1.26.4
 #   gb_sota env  : torch==2.5.1+cu121, regdiffusion==0.2.3, fasttenet==0.1.18, scvelo==0.3.4, numpy==1.26.4
-# Their paths are given to the scripts through GB_VELORAMA_BIN / GB_GB_SOTA_BIN (bin directories); GB_JUPYTER_ENV_BIN = bin dir of THIS env.
+# Their paths are given to the scripts through GB_VELORAMA_BIN / GB_GB_SOTA_BIN (bin directories); GB_JUPYTER_ENV_BIN = bin directory of this main environment.
 name: geobridge
 channels: [conda-forge]
 dependencies:

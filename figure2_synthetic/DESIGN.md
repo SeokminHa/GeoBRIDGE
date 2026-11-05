@@ -1,7 +1,7 @@
 # Figure 2 benchmark design -- as implemented
 
 *Design as implemented (original spec document not archived).* This file was assembled from the docstrings of the generator
-(`scripts/gb_pilot_AB_tf32rep_fast_2026_10_22.py`) and driver (`scripts/gb_tf32rep_fast_2026_10_22.py`), `README.md`, and `results/FEASIBILITY.md`. The frozen specification text itself (`TF32REP_SPEC.md`, cited by the driver) is not part of this release.
+(`scripts/gb_pilot_AB_tf32rep_fast_2026_10_22.py`) and driver (`scripts/gb_tf32rep_fast_2026_10_22.py`), `README.md`, and `results/FEASIBILITY.md`. The original specification text (`TF32REP_SPEC.md`, cited by the driver) is not part of this release.
 Where this file and the code differ, the code is authoritative.
 **Caution:** the module docstring at the top of the generator file is inherited from an earlier benchmark version (20 regulators, 193 edges, 39 candidates).
 It does NOT describe the Fig. 2 benchmark; `generate_grn` (docstring "TF32REP GRN") and the numbers below do.
@@ -27,15 +27,15 @@ Does a score computed from unperturbed spliced/unspliced counts identify direct 
 * Observation: spliced and unspliced UMI counts rendered with a dedicated PCG64 stream per (grn, sim, lambda); no velocity is used as input.
 
 ## Methods scored on each dataset (same 3,168 pairs)
-GeoBRIDGE PRIMARY (k = 0..8 depth average, minimum over the two roots; canonical preprocessing `common/GEOBRIDGE_PREPROCESS_V1.json`), Velorama (rt0 configuration), FastTENET, GENIE3, GRNBoost2, PIDC, RegDiffusion, DeepSEM
+GeoBRIDGE unsigned score Z (called PRIMARY in the scripts; k = 0..8 depth average, minimum over the two roots; canonical preprocessing `common/GEOBRIDGE_PREPROCESS_V1.json`), Velorama (rt0 configuration), FastTENET, GENIE3, GRNBoost2, PIDC, RegDiffusion, DeepSEM
 (and |Pearson|, dropped from the final figure). Comparator inputs and configurations are in `scripts/gb_sota_ext.py`, `gb_velorama_official_rt0.py`, `gb_tf32rep_fast_2026_10_22.py` (`ext`).
 
 ## Metrics and inference (`scripts/gb_fig2_nopearson_2026_10_30.py`)
-* Per dataset: AUPRC and AUROC of the score against the 240 direct edges over the 3,168 pairs; direct-vs-indirect AUROC (direct edges vs 2- and 3-hop indirect pairs; see `scripts/gb_dvi_audit3_2026_10_29.py` and `gb_fig2f_dvi23_2026_10_29.py` for the exact definition).
+* Per dataset: AUPRC and AUROC of the score against the 240 direct edges over the 3,168 pairs; direct-vs-indirect AUROC (direct edges vs ALL indirect pairs, i.e. regulator-target pairs at graph distance 2 to 5; computed by `scripts/gb_fig2f_dviall_2026_11_05.py` from the per-pair tables of `scripts/gb_dvi_audit3_2026_10_29.py`). An earlier variant compared direct edges with 2- and 3-hop pairs only (`gb_fig2f_dvi23_2026_10_29.py`); it is kept as a parity reference.
 * Aggregation: mean over the 2 simulations -> per GRN; mean over 6 GRNs; 95% t interval (n = 6); two-sided paired t-test over the 6 GRNs for GeoBRIDGE minus each comparator;
   Holm correction over the 7 comparators per condition and metric. Six GRNs give coarse resolution (smallest exact sign-flip p = 0.031).
-* The reference output of the final run is `results/TABLE.tsv` (864 rows = 96 datasets x 9 methods), `results/D1_vs_D2D3_datasets.tsv`, `results/Fig2_values_holm7.tsv`.
+* The reference output of the final run is `results/TABLE.tsv` (864 rows = 96 datasets x 9 methods), `results/D1_vs_D2D3_datasets.tsv`, `results/Fig2_values_holm7.tsv`, `results/fig2f_dviall/Fig2f_DvIall_values.tsv`.
 
 ## Seeds
-All generator and comparator seeds are listed in `README.md` ("Seeding"). The 96 datasets were produced by the generator file whose sha256 is recorded in each dataset's `record.json`
-(`1e12a1b6...`); the copy here differs only in file paths and comments.
+All generator and comparator seeds are listed in `README.md` ("Seeding"). The 96 datasets were produced by the generator file whose sha256 is recorded in each dataset's `record.json`;
+the copy here differs only in file paths and comments.

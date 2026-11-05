@@ -44,7 +44,7 @@ def test_cli_fixture(tmp_path, monkeypatch):
     assert np.allclose(d.to_numpy(), dd, equal_nan=True, atol=1e-9) and T.shape == prim.shape
 
 
-@pytest.mark.skipif(not os.path.exists(FEAT), reason="server repo not available")
+@pytest.mark.skipif(not os.path.exists(FEAT), reason="requires GB_REPO with the stored real-data artifacts")
 def test_panc_rfx6_d_iso_and_T_vs_stored():
     A = ad.read_h5ad(f"{CAN}/PANC_canonical.h5ad"); P = pipeline.load_pairs(f"{CAN}/PANC_canonical_pairs.npz")
     prim, _, _ = score_fixture(A, ["RFX6"], P); S0, d, _ = iso.iso_polarity(A, ["RFX6"], P, "clusters"); T, F = iso.signed_composite(prim, d)

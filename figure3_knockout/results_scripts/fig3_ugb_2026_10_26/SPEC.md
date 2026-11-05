@@ -1,5 +1,5 @@
 # Fig 3 re-evaluation on U_GB with pairwise comparisons — FROZEN SPEC (2026-10-26, before any new metric)
-Origin: internal review universe audit (internal design note (not shipped)), PI GO 2026-10-26. Evaluation-only; no score recomputed or re-normalized.
+Origin: internal review universe audit (internal design note (not shipped)), approved 2026-10-26. Evaluation-only; no score recomputed or re-normalized.
 
 Endpoints: the 9 SET9 endpoints (scratch/gb_ms_fig3_set9_2026_10_19.py EP9) with the B1000_fix PANC effect repair (scratch/gb_ms_fig3_set9_sens_2026_10_20.py effect_fixed). Truth definitions unchanged (current project rules).
 PRIMARY universe per endpoint: U_GB = stored vector axis ∩ resp_ok ∩ unique uppercase symbol (drop all duplicate members) ∩ not the TF ∩ finite frozen GeoBRIDGE score.
