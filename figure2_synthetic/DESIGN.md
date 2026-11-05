@@ -27,7 +27,7 @@ Does a score computed from unperturbed spliced/unspliced counts identify direct 
 * Observation: spliced and unspliced UMI counts rendered with a dedicated PCG64 stream per (grn, sim, lambda); no velocity is used as input.
 
 ## Methods scored on each dataset (same 3,168 pairs)
-GeoBRIDGE unsigned score Z (called PRIMARY in the scripts; k = 0..8 depth average, minimum over the two roots; canonical preprocessing `common/GEOBRIDGE_PREPROCESS_V1.json`), Velorama (rt0 configuration), FastTENET, GENIE3, GRNBoost2, PIDC, RegDiffusion, DeepSEM
+GeoBRIDGE unsigned score Z ($G_{rg}$ in the paper, called PRIMARY in the scripts; k = 0..8 depth average, minimum over the two roots; canonical preprocessing `common/GEOBRIDGE_PREPROCESS_V1.json`), Velorama (rt0 configuration), FastTENET, GENIE3, GRNBoost2, PIDC, RegDiffusion, DeepSEM
 (and |Pearson|, dropped from the final figure). Comparator inputs and configurations are in `scripts/gb_sota_ext.py`, `gb_velorama_official_rt0.py`, `gb_tf32rep_fast_2026_10_22.py` (`ext`).
 
 ## Metrics and inference (`scripts/gb_fig2_nopearson_2026_10_30.py`)

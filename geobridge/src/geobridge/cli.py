@@ -10,7 +10,7 @@ def main():
     s.add_argument("--species", choices=["mouse", "human"], help="required for raw input")
     s.add_argument("--canonical", action="store_true", help="input is already a canonical fixture; needs --pairs")
     s.add_argument("--pairs", help="canonical_pairs.npz (with --canonical)")
-    s.add_argument("--workdir", default="gb_work"); s.add_argument("--out", required=True, help="TSV regulator x target unsigned score Z (NaN = unsupported / outside universe)")
+    s.add_argument("--workdir", default="gb_work"); s.add_argument("--out", required=True, help="TSV regulator x target unsigned score Z (G_rg in the paper; NaN = unsupported / outside universe)")
     s.add_argument("--profiles", help="optional .npz with the raw |S| values at each depth k=0..30, per pseudotime root and target channel (U = unspliced, X = spliced)")
     s.add_argument("--stratum-key", help="obs column (e.g. embryo, sample, cluster) whose groups define the strata for the near-isochronic pairs used by d_iso (both cells of a pair in the same group); 'NONE' = one stratum. Enables d_iso and T outputs (needs pairs pt)")
     s.add_argument("--iso-window", type=float, default=0.02, help="iso pair window |dpt| <= w (paper: 0.02)")

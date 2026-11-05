@@ -2,7 +2,7 @@
 
 Design: 6 GRNs (seeds 501-506; 100 genes, 32 candidate regulators, exactly 240 direct edges, 3,168 regulator-target pairs, prevalence 0.0758) x 2 topologies (bifurcation = Fig. 2; tree = SI)
 x 2 simulations x 4 conditions (C0 none, C1 temporal input A, C2 branch input B, C3 A+B) = **96 datasets**. 1,200 cells per bifurcation dataset (300 per cell type, 4 types), UMI counts at depth 10.
-Methods: GeoBRIDGE (the unsigned score Z, called PRIMARY in the scripts; k=0..8, minimum over the two roots), Velorama (rt0 configuration), FastTENET, GENIE3, GRNBoost2, PIDC, RegDiffusion, DeepSEM (+ |Pearson|, which was dropped from the final figure).
+Methods: GeoBRIDGE (the unsigned score Z, $G_{rg}$ in the paper, called PRIMARY in the scripts; k=0..8, minimum over the two roots), Velorama (rt0 configuration), FastTENET, GENIE3, GRNBoost2, PIDC, RegDiffusion, DeepSEM (+ |Pearson|, which was dropped from the final figure).
 Statistics (in `scripts/gb_fig2_nopearson_2026_10_30.py`): per-dataset metric -> mean over 2 sims -> per GRN; mean over 6 GRNs; 95% t interval; two-sided paired t-test over the 6 GRNs, Holm over the 7 comparators per condition and metric.
 
 Design (as implemented; original spec not archived): `DESIGN.md`.
