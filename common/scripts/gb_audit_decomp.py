@@ -308,7 +308,7 @@ def prior_from(Zm, H, E_sel, focal_only=True):
 
 
 def robust(system, tf, kind, use, V, prior, M1, T, gate_fn, bank, r, tc, E, Xb, Pb, names_E, Cov_b, cov_f, meta_row):
-    """The pre-declared robustness gates (PI/Opus 2026-09-29): recompute P, R, the decoy calibration and the class under (i) 20 seeded random 50% subsamples of the bank (same members for every TF
+    """The pre-declared robustness gates (2026-09-29): recompute P, R, the decoy calibration and the class under (i) 20 seeded random 50% subsamples of the bank (same members for every TF
     of the system; the focal is never a member; decoys = eligible rows inside the subsample, each with its own leave-out prior over the subsample) and (ii) RANK scale (row ranks -> normal
     scores for S, P and the decoys instead of z).  The variant 'full' check (all bank rows but the focal, z scale) must reproduce the main prior exactly.  Returns (rows, npz arrays)."""
     cols = np.flatnonzero(M1)

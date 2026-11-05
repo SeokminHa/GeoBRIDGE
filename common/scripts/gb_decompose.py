@@ -16,7 +16,7 @@ gb_layer_lattice.build_endpoint after every score artifact (attribution_v3 order
   family): COMP_PC1, COMP_FA, P_pairM, P_cellU, P_cellM.  Substrate = system (never pooled); multi-TF substrates: TF-macro over the gated TFs, TF-bootstrap 10k draws (paired across vectors); single-TF
   substrates: gene bootstrap.  Holm over the declared contrasts of the substrate.
 
-  v2 (Opus review): (1) multi-TF substrate p = EXACT SIGN-FLIP permutation of the per-TF paired differences (all 2^n flips of the mean; two-sided primary, one-sided reported; floor 2/2^n);
+  v2 (after internal review): (1) multi-TF substrate p = EXACT SIGN-FLIP permutation of the per-TF paired differences (all 2^n flips of the mean; two-sided primary, one-sided reported; floor 2/2^n);
   the TF bootstrap CI and the paired t are DESCRIPTIVE sensitivity columns only; n_tf == 1 keeps the (conditional) gene bootstrap.  (2) panel_dependence.tsv: responder Jaccard between the TFs of a
   substrate + composite / REF identity across TFs (TFs of one substrate share a perturbation panel, so the effective n is below n_tf and the flip test is conditional on the panel).
   (3) TRUTH-FREE REDUCTION TEST: per (system, TF) the GB prior (on M1 & the 9 REF features finite) is regressed on the 9 REF features by OLS (no labels, same fixed gene folds, cross-fitted);

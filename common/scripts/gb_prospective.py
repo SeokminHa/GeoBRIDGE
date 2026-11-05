@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-"""gb_prospective.py -- FROZEN PROSPECTIVE TEST of the GB target prior (results doc s358 + FROZEN-SPEC AMENDMENT (s359 v2 block), s363, s366, s367 Opus-review declarations).  EVALUATION ONLY: no score /
+"""gb_prospective.py -- FROZEN PROSPECTIVE TEST of the GB target prior (results doc s358 + FROZEN-SPEC AMENDMENT (s359 v2 block), s363, s366, s367 review declarations).  EVALUATION ONLY: no score /
 prior / feature / k is changed; truth is read only inside gb_layer_lattice.build_endpoint (after every score artifact; plus one re-read of the SAME truth builder for resp_ok in the declared sensitivity)
-and every vector below is observational.  Written by Sonnet 2026-09-29, revised 2026-09-30 after the Opus FIX_REQUIRED review (declared in s367 BEFORE any prospective result); Opus re-review pending.
+and every vector below is observational.  Written 2026-09-29, revised 2026-09-30 after internal review (declared in s367 BEFORE any prospective result).
 
   SYSTEMS  PRIMARY: CARDIACV (TBX5, NKX2-5), RETINA (NRL, CRX).  SENSITIVITY (never pooled, never mixed into RETINA's draws): RETINA_NRL_3V2 (declared s366 R3).  PARITY (regression check of THIS script
            against the published audit numbers; NOT part of the prospective test): PANC.  The merge step hard-codes the roster of each system (ROSTER).
