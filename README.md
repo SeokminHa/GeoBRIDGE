@@ -74,7 +74,3 @@ All datasets are public. Download scripts and accession numbers are in `data/`.
 - Single-cell data: mouse pancreas (GSE132188), human bone marrow (Setty et al., 2019), mouse heart (GSE126128)
 - Knockout data: RFX6 (Zenodo 10.5281/zenodo.10656891), GATA1 (GSE274110), TBX5 and NKX2-5 (GSE77547)
 - ChIP data: TBX5 and NKX2-5 (GSE72223), RFX6 (GSE62844)
-
-## License
-
-MIT License. See `LICENSE`.
