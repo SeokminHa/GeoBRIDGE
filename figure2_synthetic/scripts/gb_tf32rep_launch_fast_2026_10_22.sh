@@ -1,6 +1,6 @@
 #!/bin/bash
 # TF32REP persistent worker launcher (original lab launcher dispatched workers to named cluster nodes over ssh; node names replaced by the
-# GB_CPU_HOSTS / GB_GPU_HOSTS lists below -- see CHANGES_FROM_INTERNAL.md). Usage: GEOBRIDGE_ROOT=... GB_CPU_HOSTS="hostA:5 hostB:5" (use the host name 'localhost' to run without ssh) GB_GPU_HOSTS="hostC:0 hostC:1" bash this_script.sh
+# GB_CPU_HOSTS / GB_GPU_HOSTS lists below). Usage: GEOBRIDGE_ROOT=... GB_CPU_HOSTS="hostA:5 hostB:5" (use the host name 'localhost' to run without ssh) GB_GPU_HOSTS="hostC:0 hostC:1" bash this_script.sh
 # Requires ROOT/grn_seeds.json from `audit` (and no ROOT/STOP). Every worker is setsid-detached (survives ssh logout).
 # CPU policy: on each CPU host ONE chained job = GB worker (N slots x 8 threads), and when that host's GB queue is drained the SAME job continues into
 # cpuext (EXTSLOTS slots, each arboreto task = 8 dask workers). Externals therefore never compete with GB runs for cores; they start per host as soon as it

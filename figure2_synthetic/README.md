@@ -14,7 +14,7 @@ All commands are run with `cd $GEOBRIDGE_ROOT` and `python scratch/<script>`.
 
 | Panel | Script | Input | Output |
 |---|---|---|---|
-| 2a topology schematic, 2b temporal input A(t), 2c branch input B(t) | `gb_fig2_schematic_2026_10_28.py OUT` (b, c are the binned means of the *simulated* latent driver concentrations: `raw/counts_truth.npz` of the C3 datasets) | regenerated SERGIO datasets (`results/sergio_tf32rep_2026_10_22/g50*/`) | `Fig2b_clean.png`, `Fig2c_clean.png`, `Fig2_top_schematic_draft.png` (a/b/c). Earlier layout/bars scripts are in `../archive/superseded/figure2_synthetic/` |
+| 2a topology schematic, 2b temporal input A(t), 2c branch input B(t) | `gb_fig2_schematic_2026_10_28.py OUT` (b, c are the binned means of the *simulated* latent driver concentrations: `raw/counts_truth.npz` of the C3 datasets) | regenerated SERGIO datasets (`results/sergio_tf32rep_2026_10_22/g50*/`) | `Fig2b_clean.png`, `Fig2c_clean.png`, `Fig2_top_schematic_draft.png` (a/b/c). |
 | 2d AUPRC (bifurcation) | `gb_fig2_nopearson_2026_10_30.py OUT` | `results/TABLE.tsv` (176 KB, shipped), `results/D1_vs_D2D3_datasets.tsv` (shipped) | `Fig2d_AP_bifurcation.png`, `Fig2_values_holm7.tsv` (shipped for comparison) |
 | 2e AUROC | same script | same | `Fig2e_AUROC_bifurcation.png` |
 | 2f direct-vs-indirect AUROC (indirect = 2- and 3-hop) | same script (metric swap documented in `gb_fig2f_dvi23_2026_10_29.py`) | `TABLE.tsv` + `D1_vs_D2D3_datasets.tsv` (asserted equal to `TABLE.tsv` DvI2 at 1e-12) | `Fig2f_DvI23_bifurcation.png` |
@@ -55,7 +55,7 @@ velorama env (`GB_VELORAMA_BIN`), gb_sota env (`GB_GB_SOTA_BIN`, for FastTENET /
 4. Direct-vs-indirect (2-/3-hop) metric: `python scratch/gb_dvi_audit3_2026_10_29.py results/signed/dvi_audit3_2026_10_29/full` then `python scratch/gb_dvi_audit3_agg_2026_10_29.py results/signed/dvi_audit3_2026_10_29/full` -> `agg/D1_vs_D2D3_datasets.tsv`.
 5. Plots: commands in the table above.
 
-## Seeding (verified by reading the code; see also OPEN_ISSUES.md)
+## Seeding
 * GRN: `generate_grn(g)` uses `np.random.RandomState(g)` for every structural draw (layer assignment, edges, signs, strengths K in U(1,5)); GRN seeds 501-506 are fixed by the audit (first six passing seeds).
 * SERGIO simulation: `np.random.seed(1000*grn + sim)` immediately before `sim.simulate()` (sim in {1,2}); master-regulator basal rates `RandomState(grn+5000)`.
 * Hidden-input loadings: A `RandomState(777+grn)`, B `RandomState(31337+grn)`.

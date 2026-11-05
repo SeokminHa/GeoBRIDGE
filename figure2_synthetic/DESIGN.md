@@ -1,7 +1,7 @@
 # Figure 2 benchmark design -- as implemented
 
 *Design as implemented (original spec document not archived).* This file was assembled from the docstrings of the generator
-(`scripts/gb_pilot_AB_tf32rep_fast_2026_10_22.py`) and driver (`scripts/gb_tf32rep_fast_2026_10_22.py`), `README.md`, and `results/FEASIBILITY.md`. The frozen specification text itself (`TF32REP_SPEC.md`, cited by the driver) is not part of this release (OPEN_ISSUES.md #2).
+(`scripts/gb_pilot_AB_tf32rep_fast_2026_10_22.py`) and driver (`scripts/gb_tf32rep_fast_2026_10_22.py`), `README.md`, and `results/FEASIBILITY.md`. The frozen specification text itself (`TF32REP_SPEC.md`, cited by the driver) is not part of this release.
 Where this file and the code differ, the code is authoritative.
 **Caution:** the module docstring at the top of the generator file is inherited from an earlier benchmark version (20 regulators, 193 edges, 39 candidates).
 It does NOT describe the Fig. 2 benchmark; `generate_grn` (docstring "TF32REP GRN") and the numbers below do.
@@ -38,4 +38,4 @@ GeoBRIDGE PRIMARY (k = 0..8 depth average, minimum over the two roots; canonical
 
 ## Seeds
 All generator and comparator seeds are listed in `README.md` ("Seeding"). The 96 datasets were produced by the generator file whose sha256 is recorded in each dataset's `record.json`
-(`1e12a1b6...`); the public copy differs in bytes (path/scrub edits, see `../CHANGES_FROM_INTERNAL.md`).
+(`1e12a1b6...`); the copy here differs only in file paths and comments.

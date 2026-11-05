@@ -32,7 +32,7 @@ Stages `aux`, `p1b` and the trend (`gb_fig4_bind_prod_k0_2026_10_29.py`) additio
 3. KO x ChIP labels per unit: `python scratch/gb_chip5_sens.py unit <UNIT> OUTDIR` (KO tables + ChIP occupancy; `cardiac_truth_build.py`, `gb_endpoints_v2.py`); regulatory potential `gb_beta_rp.py unit <UNIT> OUTDIR`.
 4. Audit stages: `python scratch/gb_kochip_audit.py aux|p1|p1b <units>` -> `p1_levels.tsv`, `p1b_module.tsv`, `aux_<unit>.tsv` (50 control-module average-linkage clusters); `python scratch/gb_kochip_fig_p.py` -> `fig19_contrast_pvalues.tsv`.
 5. Trend: `python scratch/gb_fig4_bind_prod_k0_2026_10_29.py OUT --B 2000` (per-gene tables `genes_<UNIT>.tsv`), then `python scratch/gb_fig4_style_2026_10_29.py RUN_DIR OUTDIR --B 9999 --minmod 5` -> `fig4b_trend.tsv`.
-6. Plot (above). The earlier renderers `gb_fig4_final_2026_10_29.py`, `gb_fig4_render_v6.py` were moved to `../archive/superseded/figure4_signed/` (not imported by anything).
+6. Plot (above).
 
 ## Seeding
 Trend bootstrap `default_rng([20261029, 41, n_modules])`; gene-bootstrap intervals reproduce `gb_kochip_audit.py` (`rng_for(unit, 'lev', i)`, global `SEED = 20261015`); near-isochronic pair sampling seeds 42/43/44 with `default_rng([seed, root_idx])`.

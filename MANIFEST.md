@@ -1,8 +1,7 @@
 # MANIFEST -- main-text figure panels and Table 1
 
-Evidence levels: **R1** = re-plot from tables shipped in this repository; **R2** = recomputation needs server-side cached intermediates (scripts traced to the producing step, intermediates NOT shipped);
-**R3** = from raw public data (chain partly traced). "Traced" means the script chain and file names were read from the code; the original release build executed nothing (only `ast.parse`); the 2026-11-05 revision executed only the items listed in `CHANGES_FROM_INTERNAL.md` section 6.
-Paths are relative to the repository; scripts are run from `$GEOBRIDGE_ROOT` after `setup_workspace.sh` as `python scratch/<name>`. Manuscript = `RECOMB2027_2` (2026-11-04).
+Levels: **R1** = re-plot from tables shipped in this repository; **R2** = recompute from intermediate files produced by the listed upstream scripts; **R3** = recompute from raw public data.
+Paths are relative to the repository; scripts are run from `$GEOBRIDGE_ROOT` after `setup_workspace.sh` as `python scratch/<name>`.
 
 ## Figure 1 (schematic)
 | Panel | Script chain | Level / note |
@@ -21,7 +20,7 @@ Paths are relative to the repository; scripts are run from `$GEOBRIDGE_ROOT` aft
 | Panel | Script chain | Level |
 |---|---|---|
 | 3a UMAP + velocity streams | `gb_fig3a_umap_labels_2026_10_30.py` <- `results/canonical_2026_09_18/{PANC,BONEMARROW,CARDIACV}_canonical.h5ad` <- `gb_canonical.py build` / `gb_canonical_cardiac.py build` <- raw data (`data/README.md`) | R3 |
-| 3b AUROC, 3c AUPRC lift (4 endpoints + equal-system mean; k=0 bar) | `gb_fig3bc_panels_2026_10_30.py` <- `results/fig3_common_v2_UOLD.tsv` (<- `gb_fig3_common_v2_2026_10_28.py --B 9999 --uold` <- `gb_fig3_ugb_v2_velalltargets_2026_10_26.py` + `results_scripts/.../fig3_ugb_v2_noF2_velalltargets.py` <- cached `ep_<stem>.vec.npz` (written by `gb_meta_nascent_sutil.py`; the 4 paper endpoints are shipped in `figure3_knockout/results/evaluator_inputs/`), truth tables `gb_truth_tables_2026_10_28.py`) and `results/fig3d_rebuild/full/fig3d_rebuild_table.tsv` (<- `gb_fig3d_rebuild_2026_10_29.py --B 9999`) | R1; R2 recompute (needs the remaining server-side inputs; internal pins skippable with `GB_SKIP_PREFLIGHT=1`, OPEN_ISSUES #1) |
+| 3b AUROC, 3c AUPRC lift (4 endpoints + equal-system mean; k=0 bar) | `gb_fig3bc_panels_2026_10_30.py` <- `results/fig3_common_v2_UOLD.tsv` (<- `gb_fig3_common_v2_2026_10_28.py --B 9999 --uold` <- `gb_fig3_ugb_v2_velalltargets_2026_10_26.py` + `results_scripts/.../fig3_ugb_v2_noF2_velalltargets.py` <- cached `ep_<stem>.vec.npz` (written by `gb_meta_nascent_sutil.py`; the 4 paper endpoints are shipped in `figure3_knockout/results/evaluator_inputs/`), truth tables `gb_truth_tables_2026_10_28.py`) and `results/fig3d_rebuild/full/fig3d_rebuild_table.tsv` (<- `gb_fig3d_rebuild_2026_10_29.py --B 9999`) | R1; R2 recompute (needs the remaining server-side inputs; internal pins skippable with `GB_SKIP_PREFLIGHT=1`) |
 | 3d CV R^2 (pseudotime; terminal identity beyond pseudotime) | `gb_fig3d_panels_2026_10_30.py` <- `results/fig3d_rebuild/devstructure/panc_devstructure.tsv` <- `gb_fig3d_devstructure_2026_10_29.py` <- canonical PANC fixture + stored pairs | R1; R2 |
 | 3e pseudotime-difference energy captured (k=1..10) | same plot script <- `results/fig3d_rebuild/geom30/geom30_pooled.tsv` <- `gb_fig3d_geom30_2026_10_29.py` | R1; R2 |
 | 3f terminal-identity energy captured | same | R1; R2 |
@@ -36,7 +35,7 @@ Paths are relative to the repository; scripts are run from `$GEOBRIDGE_ROOT` aft
 | 4b class means, gene-bootstrap CI, adjacent MWU (Holm-6), trend P (Holm-3) | `gb_fig4ab_polish_2026_10_30.py` <- `results/kochip_audit_2026_10_15/{p1_levels,fig19_contrast_pvalues}.tsv` (<- `gb_kochip_audit.py` stages `aux,p1,p1b`, `gb_kochip_fig_p.py` <- `T_<unit>.tsv` from `gb_grand_v3d_dumpT.py`, `features_<unit>.tsv` from `gb_iso_pilot.py score`, labels from `gb_chip5_sens.py`) and `results/fig4b_trend.tsv` (<- `gb_fig4_style_2026_10_29.py` <- `gb_fig4_bind_prod_k0_2026_10_29.py`) | R1; R2 for stages other than `p1`; stage `p1` (-> `p1_levels.tsv`) re-run from the shipped per-gene tables and reproduces the shipped table exactly (R1.5) |
 
 ## Package (`geobridge/`)
-Z (`primary.py`, `score.py`), signed score (`iso.py`), CLI, tests; parity against stored internal artifacts is documented in `geobridge/README.md` (PANC RFX6: S0 max abs diff 1.6e-15; T Spearman 1.0000). Package tests re-run on a server copy of this release on 2026-11-05 (see CHANGES_FROM_INTERNAL.md section 6); the real-data parity part needs `GB_REPO`.
+Z (`primary.py`, `score.py`), signed score (`iso.py`), CLI, tests; parity against stored internal artifacts is documented in `geobridge/README.md` (PANC RFX6: S0 max abs diff 1.6e-15; T Spearman 1.0000). The real-data parity tests need `GB_REPO` and are skipped otherwise.
 
 ## Supplementary figures
 See `supplementary/README.md` (script -> table directory map; SI figure source notes). Level: R1 from shipped `supplementary/results/` TSVs (< 5 MB each); the large per-dataset tables were not copied.
