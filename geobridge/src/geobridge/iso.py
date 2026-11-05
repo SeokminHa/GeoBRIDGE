@@ -1,7 +1,10 @@
-"""Isochronic polarity d_iso and signed composite T = d_iso * F_r(Z).  Math = VENDORED byte-identical scratch/gb_iso_lib.py (iso_pairs) and
-scratch/gb_isofull_lib.py (engine, ratio, seed_mean, root_mean, sgn, frac_rank, strata_codes); this file is plumbing only.
-Production recipe (gb_isofull_eval 'FI_d4' = sign(S0_iso) * F(Z_fwd)): per root, iso pairs for seeds (s, s+1, s+2); S0 = N0/D0 (source Ms, target Mu,
-no nuisance projection); S0 averaged over seeds (NaN if any seed NaN), then over the 2 roots (NaN if either NaN); d_iso = sign(S0)."""
+"""Sign estimate d_iso and signed score T = d_iso * F_r(Z).
+The arithmetic lives in the vendored libraries vendor/iso/gb_iso_lib.py (iso_pairs) and vendor/iso/gb_isofull_lib.py (engine, ratio,
+seed_mean, root_mean, sgn, frac_rank, strata_codes), which are checked against vendor/iso/SHA256SUMS; this module only wires them together.
+Recipe (as used in the paper): per root, sample near-isochronic cell pairs (same stratum, |d pseudotime| <= window) for seeds s, s+1, s+2;
+S0 = N0/D0 with the source's spliced moments Ms and the target's unspliced moments Mu, without nuisance projection; average S0 over the
+seeds (NaN if any seed is NaN), then over the 2 roots (NaN if either is NaN); d_iso = sign(S0). d_iso is the sign of an observational
+association; it does not identify direct activation or repression."""
 import os, sys, hashlib, importlib.util, numpy as np
 from . import primary
 
@@ -18,7 +21,7 @@ _IL = None
 
 
 def load():
-    """Import the vendored libs under their production module names without leaking into sys.modules/sys.path (gb_isofull_lib prepends a server path on import)."""
+    """Import the vendored libs under the module names they import each other by, without leaking into sys.modules/sys.path (gb_isofull_lib prepends a path to sys.path on import)."""
     global _IL
     if _IL is not None: return _IL
     verify_vendor(); saved_path = list(sys.path); names = ("gb_primary", "gb_iso_lib", "gb_isofull_lib"); saved = {n: sys.modules.get(n) for n in names}

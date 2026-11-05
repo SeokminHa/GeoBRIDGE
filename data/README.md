@@ -1,6 +1,6 @@
 # Data availability and download
 
-No data are stored in this repository. All inputs are public. Every path below is relative to `$GEOBRIDGE_ROOT` (see the top-level README).
+Raw datasets are not bundled; small result tables and a test fixture are included. All inputs are public. Every path below is relative to `$GEOBRIDGE_ROOT` (see the top-level README).
 Status column: **traced** = the exact file name / accession was read from the scripts that consume it; **unverified** = the download command was written
 from the standard URL pattern and was NOT executed by the release builder.
 

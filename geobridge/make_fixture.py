@@ -1,4 +1,6 @@
-"""Deterministic synthetic smoke fixture (NOT World-P): 400 cells, 60 genes, 2 roots x 1200 pairs. python make_fixture.py"""
+"""Deterministic synthetic smoke fixture: 400 cells, 60 genes, 2 roots x 1200 pairs. Run from geobridge/: python make_fixture.py
+Writes fixture/synthetic_smoke.h5ad and fixture/synthetic_smoke_pairs.npz (the same pairs as uns['gb_pairs'], in the --pairs format:
+keys {root}_I, {root}_J, {root}_pt for root in dc1_min, dc1_max)."""
 import numpy as np, anndata as ad, hashlib
 rng = np.random.default_rng(2026)
 n, g = 400, 60
@@ -14,3 +16,4 @@ A.obs["embryo"] = np.where(np.arange(n) % 2 == 0, "e0", "e1")
 pairs["dc1_min"]["pt"], pairs["dc1_max"]["pt"] = t.astype(np.float64), (1 - t).astype(np.float64)   # pseudotime per root (iso window 0.02)
 A.uns["gb_pairs"] = pairs
 A.write_h5ad("fixture/synthetic_smoke.h5ad")
+np.savez("fixture/synthetic_smoke_pairs.npz", **{f"{r}_{k}": v for r, d in pairs.items() for k, v in d.items()})

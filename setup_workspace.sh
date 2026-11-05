@@ -2,7 +2,9 @@
 # Build a $GEOBRIDGE_ROOT workspace that mirrors the directory layout the (unmodified-logic) scripts expect:
 #   $GEOBRIDGE_ROOT/scratch/*.py   <- every script from common/scripts and */scripts  (flat; scripts import each other by bare module name)
 #   $GEOBRIDGE_ROOT/{pairspace,benchmark,geobridge_model}  <- common/<same>
-#   $GEOBRIDGE_ROOT/results/...    <- the small final tables shipped in */results/ (so plotting scripts run without recomputation)
+#   $GEOBRIDGE_ROOT/results/...    <- COPIES of the small final tables shipped in */results/ (so plotting scripts run without recomputation).
+#     They are copies, not links, so a recompute that writes into $GEOBRIDGE_ROOT/results never overwrites the tables in this repository.
+#     An existing workspace file is never replaced (re-running this script keeps your recomputed tables).
 # Large inputs/intermediates (data/, results/canonical_*, comparator caches, SERGIO datasets) are NOT shipped: see data/README.md and each figure README.
 # Usage:  export GEOBRIDGE_ROOT=/path/to/workspace ; bash setup_workspace.sh
 set -euo pipefail
@@ -17,8 +19,8 @@ ln -sfn "$HERE/common/GEOBRIDGE_PREPROCESS_V1.json" "$R/GEOBRIDGE_PREPROCESS_V1.
 mkdir -p "$R/GB_real_v2" "$R/data/LaraAstiaso_raw/ext_ref"
 ln -sfn "$HERE/common/GB_real_v2/lambert2018_human_tfs.txt" "$R/GB_real_v2/lambert2018_human_tfs.txt"
 ln -sfn "$HERE/common/data/LaraAstiaso_raw/ext_ref/external_regulators.txt" "$R/data/LaraAstiaso_raw/ext_ref/external_regulators.txt"
-ln_res() {  # ln_res <repo-relative file or dir> <workspace-relative target>
-  mkdir -p "$(dirname "$R/$2")"; ln -sfn "$HERE/$1" "$R/$2"; }
+ln_res() {  # ln_res <repo-relative file or dir> <workspace-relative target>: copy (not link) unless the target already exists
+  local t="$R/$2"; mkdir -p "$(dirname "$t")"; if [ -L "$t" ]; then rm "$t"; fi; [ -e "$t" ] || cp -r "$HERE/$1" "$t"; }
 # Fig 2 plotting inputs
 ln_res figure2_synthetic/results/TABLE.tsv results/sergio_tf32rep_2026_10_22/TABLE.tsv
 ln_res figure2_synthetic/results/grn_seeds.json results/sergio_tf32rep_2026_10_22/grn_seeds.json

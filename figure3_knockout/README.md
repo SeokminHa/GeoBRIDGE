@@ -8,6 +8,19 @@ Evidence level of each panel is stated in `../MANIFEST.md` (R1 = re-plot from sh
 
 Workspace: `export GEOBRIDGE_ROOT=/path/ws; bash ../setup_workspace.sh`; commands run from `$GEOBRIDGE_ROOT` as `python scratch/<script>`.
 
+## What can be rerun from this repository
+This release has **not** been verified end-to-end from raw data to the Fig. 3 numbers. What each step needs:
+
+| Step | Rerunnable with shipped code + public data? |
+|---|---|
+| Re-plot 3b-3g from the shipped tables (`results/`) and Table 1 rows (`../table1/make_table1_tex.py`) | Yes (R1; no recomputation). |
+| Canonical preprocessing of pancreas and bone marrow (`gb_canonical.py build`, step 2), GeoBRIDGE scores (`../geobridge`), panel 3a | Yes in principle, from the scVelo datasets (`../data/README.md`); the raw rebuild matches the paper's stored fixture to rank level, not bitwise (`../geobridge/README.md`). Heart needs the velocyto rebuild from the authors' BAMs (scripts shipped, large download). |
+| KO truth tables (step 5) | Yes, from the public KO data with the shipped scripts (`../data/README.md`). |
+| Comparators on real data (step 4) | Scripts shipped; each method needs its own environment (GPU where the method supports it). |
+| Evaluator tables `fig3_common_v2_UOLD.tsv`, `fig3d_rebuild_table.tsv`, `depth_multi.tsv`, Table 1 recompute (steps 3, 3a, 6, 7) | **No.** They read intermediate files that are not included (catbank / comparator score caches, bootstrap draws, receipts, `results/signed/<SYSTEM>.npz`, cached evaluator rows). Only the four evaluator input vectors are shipped (`results/evaluator_inputs/`), and they are not sufficient on their own. To recompute, first regenerate those intermediates with the upstream scripts listed below. |
+
+Recompute commands take an output folder (`OUT`/`OUTDIR`); give a new folder so the shipped tables in `results/` are not overwritten.
+
 ## Panel -> script -> input -> output
 (Manuscript numbering. File names in the internal figure folders differ for 3b/3c: the files `Fig3b_*_APLIFT.png` are AUPRC-lift = manuscript **3c**, `Fig3c_*_AUROC.png` are AUROC = manuscript **3b**.)
 
@@ -18,7 +31,7 @@ Workspace: `export GEOBRIDGE_ROOT=/path/ws; bash ../setup_workspace.sh`; command
 | 3d CV R^2 of 30-PC embedding explained by pseudotime / terminal identity | `gb_fig3d_panels_2026_10_30.py OUTDIR` (plot) <- `gb_fig3d_devstructure_2026_10_29.py OUT` (compute; 5-fold CV, 20 permutations, seeds `default_rng([20261029, ...])`) | `results/fig3d_rebuild/devstructure/panc_devstructure.tsv` (shipped) | `Fig3d_devstructure.png` |
 | 3e pseudotime-difference energy captured by first k directions | same plot script <- `gb_fig3d_geom30_2026_10_29.py OUT` | `results/fig3d_rebuild/geom30/geom30_pooled.tsv` (shipped) | `Fig3e1_capture_pseudotime.png` |
 | 3f terminal-identity energy beyond pseudotime | same | same | `Fig3e2_capture_identity.png` |
-| 3g RFX6 AUROC vs aggregation depth (0..k), k=8 marked | same plot script <- `gb_fig3d_depth_multi_2026_10_29.py OUT --endpoints PANC_RFX6,HEART_TBX5,HEART_NKX2-5,BM_GATA1_acute --B 9999` | `results/fig3d_rebuild/depth_multi_B9999/{panc,heart,bm}/depth_multi.tsv` (shipped) | `Fig3f_PANC_depth_curve.png` (internal v7), SI: all systems, forest of production minus k=0 |
+| 3g RFX6 AUROC vs aggregation depth (0..k), k=8 marked | same plot script <- `gb_fig3d_depth_multi_2026_10_29.py OUT --endpoints PANC_RFX6,HEART_TBX5,HEART_NKX2-5,BM_GATA1_acute --B 9999` | `results/fig3d_rebuild/depth_multi_B9999/{panc,heart,bm}/depth_multi.tsv` (shipped); SI forest: `results/fig3d_rebuild/full/contrasts_all_directions.tsv` (shipped; copied from the internal `fig3d_rebuild` output folder, where it was written after `gb_fig3d_rebuild_2026_10_29.py`; its producing script is not identified in this release) | `Fig3f_PANC_depth_curve.png` (internal v7), SI: all systems, forest of production minus k=0 |
 | Table 1 RFX6 endocrine-marker rank percentiles | `gb_table1_panc_markers_2026_10_29.py OUT --B 9999` | CellMarker_2024 (Enrichr) marker sets, MGI orthologs, frozen Fig 3 scores/truth (R2) | `results/table1/table1_main_rows.tsv` (shipped), `table1_wholeset_metrics.tsv`, `table1_receipt.json`; typeset in `results/table1/TABLE1_PANC_endocrine_markers_2026_10_30.tex` (producer of the .tex from the .tsv not found) |
 | Table (KO datasets; counts) | `gb_truth_tables_2026_10_28.py` (+ `cardiac_truth_build.py`, `data/pancreas_rfx6_ko/de_analysis.py`) | see `../data/README.md` | evaluated-gene / responder counts per endpoint |
 

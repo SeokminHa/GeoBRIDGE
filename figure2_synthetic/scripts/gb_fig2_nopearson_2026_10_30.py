@@ -48,9 +48,12 @@ fig = plt.figure(figsize=(12, .6)); hd = [plt.Rectangle((0, 0), 1, 1, color=c) f
 fig.legend(hd, [l for _, l, _ in M] + ['Random'], loc='center', ncol=9, frameon=False, fontsize=9); fig.savefig(OUT + 'Fig2_bottom_legend.png', dpi=300, bbox_inches='tight')
 V = pd.DataFrame(ROWS); V.to_csv(OUT + 'Fig2_values_holm7.tsv', sep='\t', index=False)
 # check: means identical to the frozen 8-method table; report every star change vs Holm-8
-old = pd.read_csv(sys.argv[2] if len(sys.argv) > 2 else f'{R}/manuscript/figures_2026_10_28/fig2_draft/Fig2_bottom_values.tsv', sep='\t')
-mo = old[old['mean'].notna()].merge(V[(V.topo == 'bifurcation') & V['mean'].notna()], on=['metric', 'cond', 'method']); print('mean max |diff| vs frozen:', float((mo.mean_x - mo.mean_y).abs().max()), len(mo))
-po = old[old.p_holm8.notna()].merge(V[(V.topo == 'bifurcation') & V.p_holm7.notna()], on=['metric', 'cond', 'method'])
-po = po[po.mark_x != po.mark_y]; print('bifurcation d/e star changes (Holm-8 -> Holm-7):'); print(po[['metric', 'cond', 'method', 'p_holm8', 'mark_x', 'p_holm7', 'mark_y']].to_string() if len(po) else 'none')
+REF = sys.argv[2] if len(sys.argv) > 2 else f'{R}/manuscript/figures_2026_10_28/fig2_draft/Fig2_bottom_values.tsv'   # internal Holm-8 table, not shipped: check skipped if absent
+if not os.path.exists(REF): print('comparison with the Holm-8 table skipped (not shipped):', REF)
+else:
+    old = pd.read_csv(REF, sep='\t')
+    mo = old[old['mean'].notna()].merge(V[(V.topo == 'bifurcation') & V['mean'].notna()], on=['metric', 'cond', 'method']); print('mean max |diff| vs frozen:', float((mo.mean_x - mo.mean_y).abs().max()), len(mo))
+    po = old[old.p_holm8.notna()].merge(V[(V.topo == 'bifurcation') & V.p_holm7.notna()], on=['metric', 'cond', 'method'])
+    po = po[po.mark_x != po.mark_y]; print('bifurcation d/e star changes (Holm-8 -> Holm-7):'); print(po[['metric', 'cond', 'method', 'p_holm8', 'mark_x', 'p_holm7', 'mark_y']].to_string() if len(po) else 'none')
 print(V[(V.topo == 'bifurcation') & V.p_holm7.notna()].pivot_table(index=['cond', 'method'], columns='metric', values='mark', aggfunc='first').to_string())
 print('saved', OUT)

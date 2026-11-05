@@ -32,10 +32,10 @@ This folder contains the code and the summary tables used to make the supplement
 3. (Optional) Recompute the tables. Set up the workspace as described in the repository README (`export GEOBRIDGE_ROOT=/path/to/workspace; bash setup_workspace.sh`), run the compute scripts listed below from `$GEOBRIDGE_ROOT`, then collect the tables:
 
    ```bash
-   python supplementary/scripts/make_data_tables.py
+   python supplementary/scripts/make_data_tables.py out/supp_data
    ```
 
-   This only selects and merges rows from the compute outputs and overwrites the files in `supplementary/data/`.
+   This only selects and merges rows from the compute outputs and writes them to `out/supp_data/`. Without an argument it writes to `supplementary/data/` and overwrites the shipped tables, so pass a separate folder and compare.
 
 ## Figures
 

@@ -1,9 +1,12 @@
-"""THE one PRIMARY implementation (freeze condition B1, live log §234-§236).  Every evaluator imports this.
+"""Unsigned GeoBRIDGE score Z. This is the only implementation; every evaluation script imports it.
 
-PRIMARY(source) = min over the two roots of mean_{k=0..8} z(|S_U(k)|), z within the source over its truth-free
-observational universe U_obs.  §234 collapse rule: a depth column with < 3 distinct finite values or sd <= 1e-12(1+|mean|)
-is NaN; a gene needs >= ceil(2/3 * #depths) finite depths; a NaN at either root gives NaN (UNSUPPORTED).
-No final percentile transform (§236).
+Z(source, target) = min over the two pseudotime roots of the mean over conditioning depths k = 0..8 of z(|S_U(k)|).
+|S_U(k)| is the absolute signed concordance between the change of the source's spliced moments and the change of the
+target's unspliced moments over cell pairs, after removing k state directions. z standardises within one source over its
+observational target universe U_obs (defined without any truth labels).
+Support rules: a depth column with < 3 distinct finite values or sd <= 1e-12 (1 + |mean|) is set to NaN (collapsed);
+a gene needs finite values at >= ceil(2/3 * number of depths) depths; a NaN at either root gives NaN (unsupported).
+No percentile transform is applied to Z.
 """
 import numpy as np
 
@@ -24,7 +27,7 @@ def zcol(x):
 
 
 def zcons(per_root, ks=KS):
-    """per_root: {root: (G, n_k) raw |S| on U_obs}; returns (G,) PRIMARY (NaN = UNSUPPORTED)."""
+    """per_root: {root: (G, n_k) raw |S| on U_obs}; returns (G,) Z (NaN = unsupported)."""
     per = []
     for h in ROOTS:
         Zk = np.stack([zcol(per_root[h][:, k]) for k in ks])
@@ -37,14 +40,14 @@ def zcons(per_root, ks=KS):
 
 
 def zcons_matrix(A, ks=KS):
-    """Development layout: A = {root: [(nsrc, ntarg) array for k = 0..K]} -> (nsrc, ntarg) PRIMARY (row = source)."""
+    """Alternative input layout: A = {root: [(nsrc, ntarg) array for k = 0..K]} -> (nsrc, ntarg) Z (row = source)."""
     nk = max(ks) + 1
     nsrc = np.asarray(A[ROOTS[0]][0]).shape[0]
     return np.vstack([zcons({h: np.column_stack([np.asarray(A[h][k], float)[i] for k in range(nk)]) for h in ROOTS}, ks)
                       for i in range(nsrc)])
 
 
-GOLDEN_SHA256 = "27893d7fea1eecee7aff343fe331bc9d7dd3e529301dd07c8e8755851c300374"  # frozen 2026-09-26 (_golden); any algebra change must fail loudly
+GOLDEN_SHA256 = "27893d7fea1eecee7aff343fe331bc9d7dd3e529301dd07c8e8755851c300374"  # hash of _golden(): any change to the algebra above changes it, so test_golden fails
 
 
 def _golden():

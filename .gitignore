@@ -15,3 +15,7 @@ __pycache__/
 .pytest_cache/
 *.pyc
 .env
+# shipped small binaries: test fixture + pairs file, Fig. 3 evaluator input vectors
+!geobridge/fixture/*.h5ad
+!geobridge/fixture/*.npz
+!figure3_knockout/results/evaluator_inputs/*.npz

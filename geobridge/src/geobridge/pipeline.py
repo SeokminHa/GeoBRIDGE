@@ -1,5 +1,5 @@
-"""Raw untreated h5ad (integer layers spliced/unspliced) -> canonical fixture -> canonical pairs -> PRIMARY.
-Calls the VENDORED, byte-identical gb_canonical.build / build_pairs / gb_gata1_preflight.canonical_pairs; only the module-level
+"""Raw untreated h5ad (integer layers spliced/unspliced) -> canonical fixture -> canonical pairs -> unsigned score Z.
+Calls the vendored (unmodified) gb_canonical.build / build_pairs / gb_gata1_preflight.canonical_pairs; only the module-level
 root path variables (R, GEOBRIDGE_ROOT, _PS_PATH) are re-pointed at the vendored tree (verified by vendor/R/SHA256SUMS)."""
 import os, sys, json, hashlib, numpy as np, anndata as ad
 

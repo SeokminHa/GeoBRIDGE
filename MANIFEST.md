@@ -1,6 +1,6 @@
 # MANIFEST -- main-text figure panels and Table 1
 
-Levels: **R1** = re-plot from tables shipped in this repository; **R2** = recompute from intermediate files produced by the listed upstream scripts; **R3** = recompute from raw public data.
+Levels (how far each panel can be reproduced): **R1** = re-plot from tables shipped in this repository; **R2** = recompute from intermediate files produced by the listed upstream scripts (mostly not shipped); **R3** = recompute from raw public data.
 Paths are relative to the repository; scripts are run from `$GEOBRIDGE_ROOT` after `setup_workspace.sh` as `python scratch/<name>`.
 
 ## Figure 1 (schematic)
@@ -13,7 +13,7 @@ Paths are relative to the repository; scripts are run from `$GEOBRIDGE_ROOT` aft
 | 2a, 2b, 2c schematic / hidden inputs A(t), B(t) | `gb_fig2_schematic_2026_10_28.py` <- `raw/counts_truth.npz` of the C3 datasets <- generator `gb_pilot_AB_tf32rep_fast_2026_10_22.py` (`ab_profiles`, `ab_hn`) | R3 (regenerate datasets); single-dataset recipe (C3, GRN 501) in `figure2_synthetic/README.md`, design in `figure2_synthetic/DESIGN.md` |
 | 2d AUPRC | `gb_fig2_nopearson_2026_10_30.py` <- `results/TABLE.tsv` <- `gb_tf32rep_fast_2026_10_22.py eval` <- {GeoBRIDGE: `gb_tf32rep_fast ... run` (generator + `gb_canonical` + `gb_primary`/`gb_target_extension`), Velorama: `gb_velorama_official_rt0.py`, GENIE3/GRNBoost2/PIDC: `ext` in the driver (`gb_sota_run.arboreto_fit`, `gb_sota_ext.pidc_weights`), RegDiffusion/DeepSEM/FastTENET: `gb_sota_ext.py`, `gb_topo_adv_gpu.run_tenet`} | R1 for the plot; R3 for the data |
 | 2e AUROC | same | R1 / R3 |
-| 2f direct-vs-indirect AUROC (2- and 3-hop indirect) | `gb_fig2_nopearson_2026_10_30.py` (metric per `gb_fig2f_dvi23_2026_10_29.py`) <- `results/D1_vs_D2D3_datasets.tsv` <- `gb_dvi_audit3_agg_2026_10_29.py` <- `gb_dvi_audit3_2026_10_29.py` <- score caches of the 96 datasets | R1 / R3 |
+| 2f direct-vs-indirect AUROC (direct vs ALL indirect pairs, graph distance 2 to 5) | `gb_fig2f_dviall_2026_11_05.py OUT figure2_synthetic/results/fig2f_dviall/Fig2f_DvIall_values.tsv` (re-plot) <- `results/fig2f_dviall/Fig2f_DvIall_values.tsv`, `dviall_per_dataset.tsv` <- `gb_fig2f_dviall_2026_11_05.py OUT` (recompute) <- per-pair tables of `gb_dvi_audit3_2026_10_29.py` (not shipped) <- score caches of the 96 datasets. The 2-/3-hop panel drawn by `gb_fig2_nopearson_2026_10_30.py` (via `results/D1_vs_D2D3_datasets.tsv`, `gb_dvi_audit3_agg_2026_10_29.py`) is an earlier version, used only as a parity reference | R1 / R3 |
 | Holm / t-test values | `results/Fig2_values_holm7.tsv` (reference values from the final run) | R1 |
 
 ## Figure 3 and Table 1 (`figure3_knockout/`)
