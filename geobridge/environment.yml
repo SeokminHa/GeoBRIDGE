@@ -1,0 +1,18 @@
+# versions read from the server env jupyter_env (Python 3.10.0) on 2026-10-09
+name: geobridge
+channels: [conda-forge]
+dependencies:
+  - python=3.10.0
+  - pip
+  - pip:
+    - numpy==1.26.4
+    - scipy==1.15.3
+    - pandas==2.3.3
+    - anndata==0.11.4
+    - h5py==3.16.0
+    - scikit-learn==1.7.2   # figure/evaluation scripts only
+    - scanpy==1.11.5        # canonical preprocessing only
+    - scvelo==0.3.4         # canonical preprocessing / velocity only
+    - numexpr==2.14.1       # target_extension.project_scores (parity reference)
+    - pytest==9.1.1
+    - -e .

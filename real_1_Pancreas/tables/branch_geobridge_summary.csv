@@ -1,3 +1,0 @@
-branch,label,n_cells,n_pairs,k_selected,pt_source,min_dt,max_dt,max_pairs_per_cell,pair_mode,global_max_pairs
-Beta_branch,k_auto,2087,76124,10,latent_time,0.02,0.25,40,stream_per_cell,30000
-Alpha_branch,k_auto,1977,71565,10,latent_time,0.02,0.25,40,stream_per_cell,30000

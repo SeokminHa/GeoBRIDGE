@@ -1,0 +1,40 @@
+TF	group	gene	c6	fails	first_fail	occ_ok	iso_C
+TBX5	fig2_only	2610204G07RIK		not_in_loader_universe	not_in_loader_universe		
+TBX5	fig2_only	C530008M17RIK		not_in_loader_universe	not_in_loader_universe		
+TBX5	fig2_only	D030007L05RIK		not_in_loader_universe	not_in_loader_universe		
+TBX5	fig2_only	FAM49A		not_in_loader_universe	not_in_loader_universe		
+TBX5	fig2_only	GM10824		not_in_loader_universe	not_in_loader_universe		
+TBX5	fig2_only	GM15261		not_in_loader_universe	not_in_loader_universe		
+TBX5	fig2_only	GM34030		not_in_loader_universe	not_in_loader_universe		
+TBX5	fig2_only	GM41505		not_in_loader_universe	not_in_loader_universe		
+TBX5	fig2_only	GM47283		not_in_loader_universe	not_in_loader_universe		
+TBX5	fig2_only	HMGCS1		not_in_loader_universe	not_in_loader_universe		
+TBX5	fig2_only	PQLC2		not_in_loader_universe	not_in_loader_universe		
+TBX5	fig2_only	RHOX5		not_in_loader_universe	not_in_loader_universe		
+NKX2-5	fig2_only	2010300C02RIK		not_in_loader_universe	not_in_loader_universe		
+NKX2-5	fig2_only	2610204G07RIK		not_in_loader_universe	not_in_loader_universe		
+NKX2-5	fig2_only	4930512H18RIK		not_in_loader_universe	not_in_loader_universe		
+NKX2-5	fig2_only	C530008M17RIK		not_in_loader_universe	not_in_loader_universe		
+NKX2-5	fig2_only	FAM49A		not_in_loader_universe	not_in_loader_universe		
+NKX2-5	fig2_only	GM15261		not_in_loader_universe	not_in_loader_universe		
+NKX2-5	fig2_only	GM34030		not_in_loader_universe	not_in_loader_universe		
+NKX2-5	fig2_only	GM41505		not_in_loader_universe	not_in_loader_universe		
+NKX2-5	fig2_only	GM47283		not_in_loader_universe	not_in_loader_universe		
+NKX2-5	fig2_only	GM5082		not_in_loader_universe	not_in_loader_universe		
+NKX2-5	fig2_only	HMGCS1		not_in_loader_universe	not_in_loader_universe		
+NKX2-5	fig2_only	PQLC2		not_in_loader_universe	not_in_loader_universe		
+NKX2-5	fig2_only	RHOX5		not_in_loader_universe	not_in_loader_universe		
+RFX6	fig2_only	CD24A	X	k0_finite(m_C2);c6_in_LV	k0_finite(m_C2)	True	0.0475208731607663
+RFX6	fig2_only	TRP53I13	X	k0_finite(m_C2);c6_in_LV	k0_finite(m_C2)	True	-0.2173130544777107
+RFX6	fig2_only	DCDC2A	X	k0_finite(m_C2);c6_in_LV	k0_finite(m_C2)	True	0.0296002311243811
+RFX6	fig2_only	SAMD4	X	k0_finite(m_C2);c6_in_LV	k0_finite(m_C2)	True	0.1315301353720236
+RFX6	fig2_only	ANK	X	k0_finite(m_C2);c6_in_LV	k0_finite(m_C2)	True	-0.2610697386909468
+RFX6	fig2_only	INS1	X	k0_finite(m_C2);c6_in_LV	k0_finite(m_C2)	True	-0.1750982946875449
+RFX6	fig2_only	9030622O22RIK		not_in_loader_universe	not_in_loader_universe		
+RFX6	fig2_only	CCND1		not_in_loader_universe	not_in_loader_universe		
+RFX6	fig2_only	FMO1		not_in_loader_universe	not_in_loader_universe		
+RFX6	fig2_only	GJA1		not_in_loader_universe	not_in_loader_universe		
+RFX6	fig2_only	HMGCS1		not_in_loader_universe	not_in_loader_universe		
+RFX6	fig2_only	SERPINA6		not_in_loader_universe	not_in_loader_universe		
+RFX6	fig2_only	SMTNL2		not_in_loader_universe	not_in_loader_universe		
+RFX6	fig2_only	TUBA1B		not_in_loader_universe	not_in_loader_universe		

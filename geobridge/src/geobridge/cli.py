@@ -1,0 +1,40 @@
+import argparse, os, numpy as np, pandas as pd, anndata as ad
+from . import pipeline
+from .score import score_fixture
+
+
+def main():
+    p = argparse.ArgumentParser(prog="geobridge"); sub = p.add_subparsers(dest="cmd", required=True)
+    s = sub.add_parser("score", help="PRIMARY score from a RAW untreated h5ad (integer spliced/unspliced layers), end to end")
+    s.add_argument("h5ad"); s.add_argument("--regulators", required=True, help="comma-separated symbols (in the TF-retained gene set)")
+    s.add_argument("--species", choices=["mouse", "human"], help="required for raw input")
+    s.add_argument("--canonical", action="store_true", help="input is already a canonical fixture; needs --pairs")
+    s.add_argument("--pairs", help="canonical_pairs.npz (with --canonical)")
+    s.add_argument("--workdir", default="gb_work"); s.add_argument("--out", required=True, help="TSV regulator x target PRIMARY (NaN = UNSUPPORTED / outside universe)")
+    s.add_argument("--profiles", help="optional .npz of per-root U/X |S| depth profiles k=0..30")
+    s.add_argument("--stratum-key", help="obs column defining iso strata (embryo/sample/cluster); 'NONE' = one stratum. Enables d_iso and T outputs (needs pairs pt)")
+    s.add_argument("--iso-window", type=float, default=0.02, help="iso pair window |dpt| <= w (production 0.02)")
+    s.add_argument("--seed", type=int, default=42, help="first iso-pair sampling seed; seeds s,s+1,s+2 are averaged (production 42,43,44). PRIMARY Z itself is deterministic")
+    a = p.parse_args(); regs = a.regulators.split(",")
+    if a.canonical:
+        fx, pr = a.h5ad, a.pairs
+    else:
+        assert a.species, "--species required for raw input"
+        fx, pr = pipeline.preprocess(a.h5ad, a.workdir, a.species)
+    A = ad.read_h5ad(fx); prim, raw, _ = score_fixture(A, regs, pipeline.load_pairs(pr))
+    if a.profiles:
+        np.savez_compressed(a.profiles, regulators=regs, genes=np.asarray(A.var_names), **{f"{r}|{c}": v for (r, c), v in raw.items()})
+    pd.DataFrame(prim, index=regs, columns=list(A.var_names)).to_csv(a.out, sep="\t", float_format="%.12g")
+    print(f"wrote {a.out} {prim.shape}")
+    if a.stratum_key:
+        from .iso import iso_polarity, signed_composite
+        pairs = pipeline.load_pairs(pr); assert "pt" in pairs["dc1_min"], "pairs have no pt; d_iso unavailable"
+        S0, d, info = iso_polarity(A, regs, pairs, a.stratum_key, a.iso_window, a.seed); T, _ = signed_composite(prim, d)
+        stem = os.path.splitext(a.out)[0]
+        for nm, M in (("d_iso", d), ("T", T)):
+            pd.DataFrame(M, index=regs, columns=list(A.var_names)).to_csv(f"{stem}.{nm}.tsv", sep="\t", float_format="%.12g")
+        print(f"wrote {stem}.d_iso.tsv {stem}.T.tsv", info)
+
+
+if __name__ == "__main__":
+    main()

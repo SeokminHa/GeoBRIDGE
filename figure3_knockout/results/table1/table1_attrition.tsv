@@ -1,0 +1,3 @@
+	published_unique	mapped_published	mouse_genes	route_counts	in_PANC_axis	scoreable_UOLD	KO_tested	KO_responsive	KO_up	KO_down
+PRIMARY_CellMarker2024	265	260	264	{'MGI_1to1': 234, 'mouse_direct': 26, 'MGI_multi': 9, 'unmapped': 5}	96	53	53	10	1	9
+SENS_PanglaoDB2021	432	425	446	{'MGI_1to1': 407, 'MGI_multi': 18, 'unmapped': 7}	169	107	107	40	6	34

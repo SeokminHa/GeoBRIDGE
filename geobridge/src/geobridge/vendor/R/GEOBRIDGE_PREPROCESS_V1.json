@@ -1,0 +1,130 @@
+{
+ "contract": "GEOBRIDGE_PREPROCESS_V1",
+ "frozen": "2026-09-18",
+ "status": "PROPOSED - freeze on independent review; no truth was consulted in any choice below",
+ "rationale": "scVelo 0.3.4 defines velocity as Mu - gamma*Ms (tools/velocity.py:79,167) from layers Ms/Mu (tools/velocity.py:37,39), where Ms = connectivities . spliced with NO log (preprocessing/moments.py:89-95), and its own velocity-vs-state tooling uses xkey='Ms' (tools/velocity_graph.py:49). The only coherent GeoBRIDGE pairing is therefore dMs with dvelocity.",
+ "input_requirements": {
+  "spliced": "integer counts",
+  "unspliced": "integer counts",
+  "fail_closed": "a dataset lacking these is classified SENSITIVITY-ONLY / GEOMETRY-ONLY / INCOMPATIBLE and EXCLUDED from primary analysis; no layer substitution is permitted"
+ },
+ "filter_and_normalize": {
+  "min_shared_counts": 20,
+  "n_top_genes": 2000,
+  "log": true,
+  "note": "scVelo 0.3.4 filter_and_normalize does ONLY filter_genes + normalize_per_cell (preprocessing/utils.py:389-405): NO HVG selection and NO log1p, and scv.pp.filter_genes_dispersion / scv.pp.log1p do not exist in this version. Each step is therefore called explicitly: scv.pp.filter_genes(min_shared_counts, retain_genes=FULL TF catalogue) -> scv.pp.normalize_per_cell (normalises X, spliced, unspliced) -> sc.pp.highly_variable_genes(n_top_genes, flavor='seurat') on a LOG VIEW only -> subset to HVG union TF catalogue -> sc.pp.log1p(.X only). spliced/unspliced stay on the normalised linear scale because moments() builds Ms/Mu from them."
+ },
+ "tf_retention": {
+  "rule": "force-retain the ENTIRE species TF catalogue that survives min_shared_counts, never a truth-derived or perturbation-derived subset",
+  "mouse": "data/LaraAstiaso_raw/ext_ref/external_regulators.txt",
+  "human": "GB_real_v2/lambert2018_human_tfs.txt"
+ },
+ "pca": {
+  "n_comps": 30,
+  "use_highly_variable": true,
+  "zero_center": true,
+  "random_state": 0
+ },
+ "neighbors": {
+  "n_neighbors": 30,
+  "n_pcs": 30,
+  "method": "umap",
+  "metric": "euclidean",
+  "random_state": 0
+ },
+ "moments": {
+  "mode": "connectivities",
+  "n_pcs": null,
+  "n_neighbors": null,
+  "note": "defaults to the neighbors graph above"
+ },
+ "velocity": {
+  "mode": "stochastic",
+  "fit_offset": false,
+  "perc": [
+   5,
+   95
+  ]
+ },
+ "geobridge_representation": {
+  "source_matrix_for_dX": "Ms",
+  "matrix_for_DX_svd": "Ms",
+  "target_matrix_for_dV": "velocity",
+  "coordinate": "native Ms (normalised, smoothed, NOT log-transformed)",
+  "prohibited": "any hybrid such as dX from log-normalised .X with dV in native Ms velocity units"
+ },
+ "sensitivity_representation": {
+  "name": "log_coherent",
+  "source_matrix_for_dX": "log1p(Ms)",
+  "target_matrix_for_dV": "velocity / (1 + Ms)",
+  "rationale": "chain rule d log1p(s)/dt = sdot/(1+s)",
+  "rule": "if retained, applied to EVERY compatible dataset; never mixed per dataset",
+  "known_limitation": "dlog1p(Ms) equals (Ms_j-Ms_i)/(1+Ms_i) only to first order, so dX and its chain-rule dV are mutually consistent only for small changes; the native arm has no such approximation"
+ },
+ "projector_metric": {
+  "status": "OPEN - Q2, not Q1",
+  "candidates": [
+   "native (D_X as is)",
+   "standardized (D_X / 1.4826*MAD_g, gb_substrate.pair_scale)"
+  ],
+  "decided_by": "coordinate battery + cross-subsample reproducibility (gb_coordinate.py). NEVER by truth."
+ },
+ "pair_construction": {
+  "builder": "geobridge_model.pairspace.build_forward_pairs",
+  "min_forward_dt": 0.02,
+  "max_forward_dt": 0.25,
+  "max_pairs_per_cell": 40,
+  "roots": [
+   "dc1_min",
+   "dc1_max"
+  ],
+  "pair_seed": 42,
+  "note": "roots are reported separately and never pooled or selected between"
+ },
+ "k_selection": {
+  "status": "OPEN - one rule for every dataset, chosen on methodological properties",
+  "candidates": [
+   "blocked BCV (cell-disjoint rows x gene columns)",
+   "X-V shared dynamic saturation",
+   "Bai-Ng IC_p2 with T=n_cells",
+   "tail-exhaustion"
+  ],
+  "hard_rules": [
+   "polarity-blind: activation and repression share one k",
+   "no per-target k_rg",
+   "no per-regulator k_r",
+   "no KO/ChIP/DE truth in selection",
+   "effective sample size is n_cells, never n_pairs, because D_X = B.X"
+  ]
+ },
+ "observability": {
+  "coordinates": [
+   "detection fraction",
+   "mean non-zero abundance",
+   "dispersion",
+   "positive-cell count",
+   "effective pair support"
+  ],
+  "forbidden_matching_variables": [
+   "state association",
+   "pseudotime correlation",
+   "A_r",
+   "state R2",
+   "any score-derived quantity"
+  ]
+ },
+ "gene_fold_cross_fitting": {
+  "folds": 5,
+  "seed": 1,
+  "measured_risk": "overlap(P_k^(-F), P_k^full) on PANC full pair count falls 0.98 (k<=3) -> 0.95 (k=8) -> 0.87 (k=31) -> 0.79 (k=50); source+target DOUBLE exclusion is therefore NOT production-safe at deployment depth"
+ },
+ "dataset_overrides": {
+  "policy": "none permitted unless classified as biological-design metadata (e.g. species TF catalogue). Performance-motivated overrides are forbidden and must be listed here if ever granted.",
+  "granted": []
+ },
+ "verified_against": {
+  "scvelo": "0.3.4",
+  "path": "miniconda3/envs/jupyter_env/.../scvelo (the copy that RUNS under PYTHONNOUSERSITE=1)",
+  "note": "semantics cross-checked in BOTH the conda copy and the ~/.local AFS copy; moments.py:89,94, velocity.py:37,39,79,167 and velocity_graph.py:49 are identical in both"
+ }
+}

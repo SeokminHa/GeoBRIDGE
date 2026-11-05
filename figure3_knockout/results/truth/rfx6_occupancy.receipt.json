@@ -1,0 +1,31 @@
+{
+ "out": "results/endpoints_v2/rfx6_occupancy.tsv",
+ "sha256": "121132a62e0e0acf4131ec164cf77a6e28e740a72e9742c045c4f5ee5aee38f3",
+ "script_sha256": "372ba96a58097d1f0d7b35a7364a574dba68f48f3f84bac05190389e97c886a6",
+ "peaks": "$GEOBRIDGE_ROOT/data/rfx6_binding/GSE62844/GSM1534425_PSR-06_HA-Rfx6.peaks.txt.gz",
+ "peaks_sha256": "8f25f01123e5c4677ed7f1e21e63e47d6fc12bb26d5af25dc3721694af216836",
+ "refgene": "$GEOBRIDGE_ROOT/data/rfx6_binding/refGene_mm9.txt.gz",
+ "refgene_sha256": "7eb239607afa72581e1eebb9c90156e8d83d871953118357b93d39df88208ac4",
+ "de": "$GEOBRIDGE_ROOT/real_1_Pancreas/external_validation/aldous_rfx6/results/aldous_PPs_WT_vs_KO_DE.tsv",
+ "de_sha256": "f93b1cb1eb45520d00c39725533af4486e563fe9030dba2a6158799fee03a3d2",
+ "orthology": "$GEOBRIDGE_ROOT/data/orthology/HOM_MouseHumanSequence.rpt",
+ "orthology_sha256": "3d4bc89e71e57e10adf0139ba033786cb02e2e24e8d49cf0c357d1c2924afa0a",
+ "fixture": "$GEOBRIDGE_ROOT/results/canonical_2026_09_18/PANC_canonical.h5ad",
+ "fixture_sha256": "076cac133df9b07f755378cc1b2fec897c79b14bb82c4b42f34830449a83d522",
+ "per_gene_sha256": "fa53dc05c8b01693df2c36478abf89b146121927e968a934c05822ea6c78fd73",
+ "truth_helper_sha256": "2fd96f8fa0b180c18c30d081606ee743f88e5b1d60ed3ac6410183d315bfae2b",
+ "class_helper_sha256": "22fff7e318d78e2bcb6d70f2f78330a0f64995cf594a581cc36c24d79fd69b43",
+ "propensity_covariates": [
+  "log_tx_len",
+  "n_tss",
+  "log_abund",
+  "detect"
+ ],
+ "coordinate_convention": "1-based (MACS start-1+summit; refGene txStart+1 / txEnd)",
+ "n_peaks_all": 23308,
+ "n_peaks_fdr5": 22160,
+ "counts": "{('ACT_RESPONDER', 'DIRECT_LIKE'): 66, ('ACT_RESPONDER', 'KO_ONLY'): 72, ('REP_RESPONDER', 'DIRECT_LIKE'): 40, ('REP_RESPONDER', 'KO_ONLY'): 48, ('TESTED_NULL', 'NULL_OCCUPIED'): 1128, ('TESTED_NULL', 'NULL_UNOCCUPIED'): 1748, ('TESTED_NULL', 'UNKNOWN'): 5, ('UNKNOWN', 'UNKNOWN'): 772}",
+ "labels_read_scores": false,
+ "n_summits_ambiguous_tie": 26,
+ "assignment": "each summit -> single nearest canonical (longest-span) TSS; ties unassigned"
+}

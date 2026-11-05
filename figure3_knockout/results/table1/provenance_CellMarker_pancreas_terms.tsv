@@ -1,0 +1,45 @@
+term	n_genes	matched
+Acinar Cell Pancreas Human	8	False
+Acinar Cell Pancreatic Islet Human	97	False
+Alpha Cell Pancreas Human	17	True
+Alpha Cell Pancreas Mouse	7	True
+Alpha Cell Pancreatic Islet Human	91	True
+Alpha Cell Pancreatic Islet Mouse	9	True
+B Cell Pancreas Human	14	False
+B Cell Pancreas Mouse	17	False
+Beta Cell Pancreas Human	20	True
+Beta Cell Pancreas Mouse	5	True
+Beta Cell Pancreatic Islet Human	108	True
+Beta Cell Pancreatic Islet Mouse	15	True
+Cancer Cell Pancreas Human	8	False
+Cancer Stem Cell Pancreas Human	12	False
+Conventional Dendritic Cell 1(cDC1) Pancreas Mouse	6	False
+Conventional Dendritic cell(cDC) Pancreas Mouse	8	False
+Cytotoxic Cell Pancreas Human	6	False
+Delta Cell Pancreas Human	17	True
+Ductal Cell Pancreas Human	16	False
+Ductal Cell Pancreas Mouse	6	False
+Endocrine Cell Pancreas Human	11	True
+Endothelial Cell Pancreas Human	10	False
+Endothelial Cell Pancreas Mouse	5	False
+Epithelial Cell Pancreas Human	6	False
+Epithelial Cell Pancreatic Islet Human	8	False
+Epithelial Cell Pancreatic Islet Mouse	6	False
+Fibroblast Pancreas Human	9	False
+M1 Macrophage Pancreas Mouse	6	False
+Macrophage Pancreas Human	17	False
+Macrophage Pancreas Mouse	6	False
+Mesenchymal Cell Pancreas Human	9	False
+Mesenchymal Cell Pancreatic Islet Human	5	False
+Monocyte-derived Macrophage Pancreas Human	6	False
+Monocyte Pancreas Human	7	False
+Myeloid Cell Pancreas Human	7	False
+Myofibroblastic Cancer Associated Fibroblast (myCAF) Pancreas Human	6	False
+Pancreatic Endoderm Cell Undefined Human	5	False
+Pancreatic Polypeptide Cell Pancreas Human	18	True
+Progenitor Cell Pancreas Human	8	False
+Regulatory T(Treg) Cell Pancreas Mouse	7	False
+Stellate Cell Pancreas Human	5	False
+T Cell Pancreas Human	17	False
+T Cell Pancreas Mouse	5	False
+T Cell Pancreatic Islet Mouse	12	False

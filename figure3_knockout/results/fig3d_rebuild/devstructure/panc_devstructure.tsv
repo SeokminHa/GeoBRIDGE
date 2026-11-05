@@ -1,0 +1,17 @@
+root	block	quantity	n_cells	value	null_mean	null_max
+dc1_min	T_temporal	CV R2 of 30-PC variance on pseudotime spline (all cells)	3696	0.6691296406381454	-0.002750053261375074	-0.0008807129518433321
+dc1_min	F_fate	CV R2 of 30-PC variance on spline (terminal cells, common support)	1146	0.13255871995835977		
+dc1_min	F_fate	incremental CV R2 of fate one-hot beyond spline	1146	0.254283874366118	-0.002318510699976256	-8.148298688437361e-05
+dc1_min	F_fate	incremental CV R2 of 1{Alpha} beyond spline	470	0.1713660811149329	-0.0008823773455222228	0.0007591144153145102
+dc1_min	F_fate	incremental CV R2 of 1{Beta} beyond spline	591	0.18134544508589379	-0.0008052869996489464	0.0001979515712491331
+dc1_min	F_fate	incremental CV R2 of 1{Delta} beyond spline	18	0.01636973363841232	-0.0007145659918360858	0.0008859360794448712
+dc1_min	F_fate	incremental CV R2 of 1{Epsilon} beyond spline	67	0.06119225636975867	-0.000766287545579919	0.0006763996709429065
+dc1_min	F_fate	fate balanced accuracy from spline-residualised PCs (chance 0.25)	1146	0.9016346024852875	0.2569057205243538	0.2820086350477515
+dc1_max	T_temporal	CV R2 of 30-PC variance on pseudotime spline (all cells)	3696	0.6943460192202163	-0.00265733609926625	-0.0014249991041768162
+dc1_max	F_fate	CV R2 of 30-PC variance on spline (terminal cells, common support)	868	0.16843130331031564		
+dc1_max	F_fate	incremental CV R2 of fate one-hot beyond spline	868	0.2236516747596472	-0.0034498531710616563	-0.0008857324506064135
+dc1_max	F_fate	incremental CV R2 of 1{Alpha} beyond spline	466	0.08462140169343213	-0.0011854518834794492	0.00015903754427759598
+dc1_max	F_fate	incremental CV R2 of 1{Beta} beyond spline	210	0.09818694704012043	-0.0010908788929785529	-7.20370774757173e-05
+dc1_max	F_fate	incremental CV R2 of 1{Delta} beyond spline	65	0.06702429032024138	-0.001094427328803127	0.00100237541210757
+dc1_max	F_fate	incremental CV R2 of 1{Epsilon} beyond spline	127	0.09116544432525875	-0.0010252698737542865	0.002492447102935169
+dc1_max	F_fate	fate balanced accuracy from spline-residualised PCs (chance 0.25)	868	0.8997106399171216	0.2563001035608416	0.2706163473128091

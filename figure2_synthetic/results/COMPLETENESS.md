@@ -1,0 +1,11 @@
+# Completeness (expected 96 datasets per method; GB errors: 0; INVALID method-rows excluded from TABLE and listed in INVALID.tsv: 0)
+- GB: 96/96
+- VEL: 96/96
+- deepsem: 96/96
+- regdiffusion: 96/96
+- fasttenet: 96/96
+- genie3: 96/96
+- grnboost2: 96/96
+- pidc: 96/96
+- pearson: 96/96
+- GB non-OK status: 0; datasets with all 9 methods: 96

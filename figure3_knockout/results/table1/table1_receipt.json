@@ -1,0 +1,138 @@
+{
+ "B": 9999,
+ "n_UOLD": 1353,
+ "attrition": {
+  "PRIMARY_CellMarker2024": {
+   "published_unique": 265,
+   "mapped_published": 260,
+   "mouse_genes": 264,
+   "route_counts": {
+    "MGI_1to1": 234,
+    "mouse_direct": 26,
+    "MGI_multi": 9,
+    "unmapped": 5
+   },
+   "in_PANC_axis": 96,
+   "scoreable_UOLD": 53,
+   "KO_tested": 53,
+   "KO_responsive": 10,
+   "KO_up": 1,
+   "KO_down": 9
+  },
+  "SENS_PanglaoDB2021": {
+   "published_unique": 432,
+   "mapped_published": 425,
+   "mouse_genes": 446,
+   "route_counts": {
+    "MGI_1to1": 407,
+    "MGI_multi": 18,
+    "unmapped": 7
+   },
+   "in_PANC_axis": 169,
+   "scoreable_UOLD": 107,
+   "KO_tested": 107,
+   "KO_responsive": 40,
+   "KO_up": 6,
+   "KO_down": 34
+  }
+ },
+ "tied_fraction_UOLD": {
+  "GeoBRIDGE": 0.0,
+  "|Pearson|": 0.0,
+  "GENIE3": 0.0,
+  "GRNBoost2": 0.8218773096821878,
+  "Velorama": 0.0,
+  "RegDiffusion": 0.30155210643015523,
+  "DeepSEM": 0.0,
+  "PIDC": 0.0,
+  "FastTENET": 0.0
+ },
+ "rebuild_parity": [
+  {
+   "endpoint": "PANC_RFX6",
+   "check": "armD vs GeoBRIDGE on UOLD",
+   "max_abs": 6.625999815490502e-08,
+   "n_nonfinite": 0
+  },
+  {
+   "endpoint": "PANC_RFX6",
+   "check": "catbank_PU vs GeoBRIDGE on UOLD",
+   "max_abs": 0.0,
+   "n_nonfinite": 0
+  },
+  {
+   "endpoint": "PANC_RFX6",
+   "check": "signed_zcons08 vs GeoBRIDGE on UOLD",
+   "max_abs": 0.0,
+   "n_nonfinite": 0
+  },
+  {
+   "endpoint": "PANC_RFX6",
+   "check": "K0 arm vs signed zcons([0])",
+   "max_abs": 1.3324421277438603e-07,
+   "n_nonfinite": 0,
+   "finite_mask_mismatch": 0
+  }
+ ],
+ "rebuild_inputs": {
+  "$GEOBRIDGE_ROOT/results/figures/manuscript_2026_10_19/fig3_pt_comparator_v2/arms/arms_PANC_core.npz": "cda2a569081ad9a374b99e6c53cfd36a4e003353574752fe618714ec8f663d44",
+  "$GEOBRIDGE_ROOT/results/figures/manuscript_2026_10_19/fig3_pt_comparator_v2/arms/arms_PANC_rnd0-5.npz": "372f806b9187df1b1a0ec3050fbb7669adbdf20694d558a49ee4c5921cf5e7da",
+  "$GEOBRIDGE_ROOT/results/figures/manuscript_2026_10_19/fig3_pt_comparator_v2/arms/arms_PANC_rnd10-15.npz": "ab542817a874d43d5e59e4853913c1d316acf158ec4f160af9eae34b87f81896",
+  "$GEOBRIDGE_ROOT/results/figures/manuscript_2026_10_19/fig3_pt_comparator_v2/arms/arms_PANC_rnd15-20.npz": "1652de758de311cdd581ea89be2c0628e4fa80eac427111a702815bea3ce1f6a",
+  "$GEOBRIDGE_ROOT/results/figures/manuscript_2026_10_19/fig3_pt_comparator_v2/arms/arms_PANC_rnd5-10.npz": "de75a6f40902b04fe359d29a36fb3aecd7774e810581314f779f25ca13bbc153",
+  "$GEOBRIDGE_ROOT/results/real_uniform/catbank/PANC_scores_0-235.npz": "8ab13459f31c7609c739bf847dc706b1445ae943758b60c2dcb39422c82f13fc",
+  "$GEOBRIDGE_ROOT/results/signed/PANC.npz": "f8fde6eea08e7418767c860410ec720dea551f43ca858506a4b04ae94aa0c95e"
+ },
+ "rebuild_deps": {
+  "scratch/gb_fig3_ugb_v2_velalltargets_2026_10_26.py": "7e72158d925d6e7854e6363e9e3254079491cf1884ba5a466aecfe28346305e7",
+  "results/signed/bm_acute_design_audit_2026_10_26/noF2/fig3_ugb_v2_noF2_velalltargets.py": "bcbadba41b97c2e049fd9096ffdc63c62a8bd1acbb47d218a9e3f9bb74a16847",
+  "scratch/gb_canon_table.py": "6fef72740a7c9256218b16a1ac91020ea61b76dc83e3d0358a58779fa4b19823",
+  "scratch/gb_ptable.py": "5db6f77d7e0bfd6b1f3e666014e74ff9a7b56798af384cad915228ee31719166",
+  "scratch/gb_primary.py": "2717f46f49f0cf491530282be19dd11e28ff2bf091c7bfb004588e81c426818a"
+ },
+ "draw_fingerprints": {
+  "PANC_RFX6": "1b407a206cf51364"
+ },
+ "rebuild_replay": [
+  {
+   "endpoint": "PANC_RFX6",
+   "draw": 0,
+   "auroc_eval": 0.5583586842855784,
+   "auroc_dup": 0.5583586842855784,
+   "ap_eval": 0.06016041053699375,
+   "ap_dup": 0.06016041053699376
+  },
+  {
+   "endpoint": "PANC_RFX6",
+   "draw": 1,
+   "auroc_eval": 0.6459194214876033,
+   "auroc_dup": 0.6459194214876034,
+   "ap_eval": 0.09623140878139622,
+   "ap_dup": 0.09623140878139622
+  },
+  {
+   "endpoint": "PANC_RFX6",
+   "draw": 2,
+   "auroc_eval": 0.4830524057615691,
+   "auroc_dup": 0.4830524057615691,
+   "ap_eval": 0.049660715508641165,
+   "ap_dup": 0.049660715508641165
+  }
+ ],
+ "code_sha256": "534a1a2aa1bbdf90eab52453608c35878e33fb92b8c2e6e36c0706b77fce7d36",
+ "rebuild_code_sha256": "94c18ecf3cf6800a25a3ebce9cd3bb6daa12a28d2efda73baf2e50ed9e52ea83",
+ "truth_code_sha256": "859096908a9884baf55b1633ae0140ca4f7ae88955745fd19c1259aa99979fa8",
+ "inputs": {
+  "$GEOBRIDGE_ROOT/data/genesets/CellMarker_2024.txt": "3dc1012889215a9b870d268be65c634d91359fd114909d7290e0dfafc10decc7",
+  "$GEOBRIDGE_ROOT/data/genesets/PanglaoDB_Augmented_2021.txt": "aa104e6a0c2b826fc93d8478ab8af7625dcbd5f10f87bed28a9c0a1f992632fe",
+  "$GEOBRIDGE_ROOT/data/orthology/HOM_MouseHumanSequence.rpt": "3d4bc89e71e57e10adf0139ba033786cb02e2e24e8d49cf0c357d1c2924afa0a",
+  "$GEOBRIDGE_ROOT/results/signed/fig3_gb_unique_2026_10_28/full3b/ugb_all_rows.tsv": "bd41aba0f0a546dcc448c082a0039101078a9d9b186af56bddbcdf0f0aae5551",
+  "$GEOBRIDGE_ROOT/results/signed/PANC.npz": "f8fde6eea08e7418767c860410ec720dea551f43ca858506a4b04ae94aa0c95e"
+ },
+ "draws_sha256": "478126435f0331bc2337ec17800aab652e8566bf79ad8c3eadfba71ce9e93847",
+ "module_receipt": {
+  "rule_sha256": "aca866200268a5ce38d9af69aff53721818c42808528e658b227e8ee0fdfb503",
+  "module_file_sha256": "a08031365e69ea1349435d6a3613ae3ecd83592e92b524980797c10d1a05349e",
+  "n_modules": 506
+ }
+}

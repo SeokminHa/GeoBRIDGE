@@ -1,27 +1,17 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.Python
-*.so
-.venv/
-venv/
-ENV/
-
-# Editor / OS
-.DS_Store
-Thumbs.db
-*.swp
-.idea/
-.vscode/
-
-
+# data and large intermediates are never committed
+data/raw/
+data/downloads/
+data/*/downloads/
 *.h5ad
-data/
-*/cache/
-# Synthetic benchmark: GeoBridge streaming pairspace cache (can be large)
-**/.pairspace_cache/
-# Optional: omit large regenerated artifacts (uncomment if you do not want them in git)
-# generated/
-# results/
-# simdata/
+*.loom
+*.bam
+*.fastq.gz
+*.npz
+*.pt
+results/**/draws*.npz
+**/synthetic/
+**/_work/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
