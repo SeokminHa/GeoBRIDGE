@@ -1,56 +1,54 @@
-# Supplementary figures (SI) -- scripts and data
+# Supplementary figures
 
-Every SI figure is plotted by `scripts/gb_si_figs_2026_11_03.py` (and the small companions below) from the summary tables in `results/`
-(shipped: 200 TSVs, 5 MB in total, copied from `results/signed/r2fix_2026_11_01/` of the internal run; tables > 5 MB were not copied).
-After `bash ../setup_workspace.sh` the shipped tables are linked at `$GEOBRIDGE_ROOT/results/signed/r2fix_2026_11_01/`, so the plotting scripts run unchanged:
-`cd $GEOBRIDGE_ROOT && python scratch/gb_si_figs_2026_11_03.py` (no arguments; it reads `results/signed/r2fix_2026_11_01/` and writes `SI_FIGS_2026_11_03/` there, i.e. into this repository's `supplementary/results/`). Evidence levels per figure are in `../MANIFEST.md`.
+This folder contains the code and the summary tables used to make the supplementary figures of the paper. Every figure can be redrawn in a few seconds from the tables in `data/`. The scripts that produced those tables are in `scripts/` as well.
 
-## Table directory -> producing script (compute stage; R2: needs the 96 SERGIO datasets and/or real-data caches)
-*The mapping below was inferred from script and directory names and from the SI source notes; the producing script of each table was not individually verified by reading its output path.*
-| results/ sub-directory | Compute script (`scripts/`) | Content |
-|---|---|---|
-| T1_sergio, (T1A/T1B) | `gb_r2fix_T1A_k0_2026_11_01.py`, `gb_r2fix_T1A_fig_k0_2026_11_01.py`, `gb_r2fix_T1B_macro_dvi_2026_11_01.py` | GeoBRIDGE k=0 on the 96 datasets; macro DvI |
-| T2_realk0 | `gb_r2fix_T2_realk0_2026_11_01.py` | k=0 on real endpoints |
-| T3_fig3 | `gb_r2fix_t3_fig3_2026_11_01.py` | Fig 3 re-evaluation tables |
-| T4_misc | `gb_r2fix_t4_misc.py` | misc. |
-| T5_kcurve, T6_k0delta, T7_kjustify | `gb_fig2_kcurve_2026_11_01.py`, `gb_fig2_k0delta_2026_11_02.py`, `gb_fig2_kjustify_2026_11_02.py` | AP / DvI vs maximum depth K, paired change vs K=0, leave-one-GRN-out K |
-| T8_kwin_real | `gb_kwindows_real_2026_11_02.py` | AUROC vs aggregation window on real endpoints |
-| T9_bind | `gb_fig3_bindcontrast_2026_11_02.py` | bound vs unbound AUROC / sign agreement (KO x ChIP), module bootstrap |
-| T10_matched, T11_matched_real | `gb_matched_baseline_sergio_2026_11_02.py`, `gb_matched_baseline_real_2026_11_02.py` | concordance / cosine / Pearson / partial-correlation baselines |
-| T12_story_E1E2E3E7 | `gb_story_E1E2E3E7_2026_11_02.py` | degradation under shared effects, class means |
-| E9_class_restore | `gb_E9_class_restore_2026_11_02.py` | rank-percentile restoration by distance class |
-| E10_oracle | `gb_e10_oracle_2026_11_02.py`, `gb_e10_oracle_full_2026_11_02.py`, `gb_e10_oracle_summary_2026_11_02.py`, `gb_e10_oracle_rank_2026_11_02.py`, `gb_e10_oracle_rank_summary_2026_11_02.py` | oracle conditioning arms |
-| T13_story_E4E5, T13b_E4_strat | `gb_t13_story_E4E5_2026_11_02.py`, `gb_t13b_E4_strat_2026_11_02.py` | energy captured vs k, score-shared-signal correlation |
-| T14_fg_direction | `gb_fg_direction_2026_11_02.py` | removed-subspace fraction vs KO direction |
-| E8_mr_alignment | `gb_e8_mr_alignment_2026_11_02.py` | |
-| E11_pairwindow, E12_isowindow | `gb_e11_pairwindow_2026_11_02.py`, `gb_e11_summarize_2026_11_02.py`, `gb_e12_isowindow_2026_11_01.py`, `gb_e12_isowindow_agg_2026_11_01.py` | pair window / cap and near-isochronic window sensitivity |
-| E13_sign_synth, E14_sign_real, E15_fig4_by_sign, E16_sign_mech_smallN | `gb_sign_synth_E13_2026_11_03.py` (+`_agg`), `gb_sign_real_E14_2026_11_03.py` (+`_fig`), `gb_sign_real_E15_2026_11_03.py`, `gb_r2fix_E15_fig_2026_11_03.py`, `gb_r2fix_E15_fig4_by_sign_2026_11_03.py`, `gb_sign_mech_E16_2026_11_04.py`, `gb_si_sign_fig_2026_11_04.py` | sign-estimator analyses |
-| SI_fig3_other_systems, SI_channel_operator_v2 | `gb_si_fig3_systems_2026_11_03.py`, `gb_si_channel_operator_2026_11_03.py` | other systems; channel / operator comparison |
-| (dose / runtime) | `gb_dose_2026_11_04.py`, `gb_dose_full_2026_11_04.py`, `gb_si_dose_replot_2026_11_05.py`, `gb_runtime_common_2026_11_04.py`, `gb_runtime_common_agg_2026_11_04.py` | dose-response of shared effects; runtime table |
+## Requirements
 
----
-## Original SI source notes (copied from the internal SI folder README, host names removed)
-# SI figures 2026-11-03 (rev. 2: readable labels, unified colour convention)
-Plot-only; source: results/signed/r2fix_2026_11_01/ ; script scratch/gb_si_figs_2026_11_03.py (run on a CPU node). All numbers are read directly from the listed tables; the only arithmetic is the equal-weight mean of the four endpoint AUROCs (S_kreal a). Production settings: k=0..8 (depth 0..8), window 0.02-0.25, iso 0.02. n = 6 GRNs for synthetic panels; real-data CIs are the bootstrap CIs in the tables.
+- Python 3.10 with NumPy, pandas, SciPy, statsmodels, Matplotlib and Pillow (all included in `../environment.yml`)
+- Redrawing the figures needs no other data and no GPU.
+- Recomputing the tables needs the simulated benchmark datasets (see `../figure2_synthetic/README.md`) and the knockout evaluation inputs (see `../figure3_knockout/README.md`).
 
-Colour convention: conditions None / Temporal (A) / Branch (B) / A+B = blue / orange / aqua / yellow (conditions only). GeoBRIDGE = black filled, GeoBRIDGE k=0 = black open (dark grey in S_degradation), other methods = grey. Real-data endpoints: Pancreas RFX6 blue, Bone marrow GATA1 orange, Heart TBX5 yellow, Heart NKX2-5 aqua (S_kreal, S_matched d, S_fg a only). Oracle arms: injected-profile magenta, hidden-subspace violet, hidden-subspace + PCs green. Each legend states what colour means in that figure.
+## Tutorial
 
-- **S_kreal.png** - T8_kwin_real/ALL_windows.tsv, ALL_pairs_vs_cum0-8.tsv. (a) AUROC (all targets) versus maximum depth K (depth range 0..K; K=0,4,6,8,9,10,12,16,30) per real-data endpoint with 95% CI, plus the equal-weight mean of the four endpoints (grey squares); production depth 0..8 dotted. (b) Paired AUROC difference of alternative windows (no conditioning k=0; 0..6, 0..9, 0..10, 0..12; 1..8, 1..10, 2..8; percentile mean 1..8) versus 0..8 (production) with 95% CI. Caveat: four endpoints from single datasets; Bone marrow GATA1 CIs are wide; windows 0..4/0..16/0..30 are shown in a only.
-- **S_matched.png** - T10_matched/full/summary.tsv (pooled scope), T11_matched_real/{panc,bm,heart}/depth_multi.tsv. (a,b) Mean AP and DvI23 AUROC over 6 synthetic GRNs for Concordance, Cosine and Pearson at k=0 and k=0..8, and the cell-space partial correlation at k=0..8 (black; no CI in the source table). (c) Production (GeoBRIDGE) minus each arm, AP black and DvI23 AUROC grey, 95% CI over 6 GRNs. (d) Real-data AUROC (all targets) with 95% CI for the same baselines, coloured by endpoint. Caveat: Concordance k=0..8 is the production score, so its difference to itself is 0 by construction.
-- **S_binding.png** - T9_bind/full_v2/per_contrast.tsv, pooled.tsv. (a) Unsigned AUROC, bound vs unbound targets, for six TF x KO-direction contrasts and pooled: GeoBRIDGE (black filled), GeoBRIDGE k=0 (black open), |log2FC| label (dark-grey diamond) with 95% CI; ten other methods as grey dots without CI; 0.5 reference. (b) Sign agreement among bound (filled) and unbound (open) targets with 95% CI. (c) Specification curve: pooled sign agreement among responders for six sign rules (near-isochronic concordance = adopted), 95% CI, with per-contrast values in grey. Caveat: few bound targets per contrast; TBX5 KO-down bound agreement = 1.0 with a degenerate CI.
-- **S_degradation.png** - T12_story_E1E2E3E7/E1_degradation.tsv (topo = all). Paired change in DvI23 AUROC for Temporal (A), Branch (B) and A+B versus None per method; native (filled) and per-source z (open), 95% CI over 6 GRNs; methods sorted by the A+B change. GeoBRIDGE black, GeoBRIDGE k=0 dark grey, others grey.
-- **S_classrank.png** - E9_class_restore/E9_summary.tsv (topo all), T12_story_E1E2E3E7/E3_class_means.tsv. (a) Change in rank percentile (GeoBRIDGE minus GeoBRIDGE k=0) per distance class (Direct d=1, d=2, d=3, d=4+, Unconnected) and condition, 95% CI over 6 GRNs. (b) Mean rank percentile per class and condition for GeoBRIDGE (filled, solid) and GeoBRIDGE k=0 (open, dashed). Caveat: E9 rank differences are zero-sum across classes (a gain at d=1 is offset elsewhere); panel b has no CI in the table.
-- **S_oracle.png** - E10_oracle/full/summary_full.tsv, E10_oracle/rank_audit/summary_rank.tsv. (a,b) AP and DvI23 AUROC difference versus GeoBRIDGE (zero line = reference) by condition for GeoBRIDGE k=0, injected-profile oracle, hidden-subspace oracle and hidden-subspace oracle + PCs (k=0..8), 95% CI over 6 GRNs. (c,d) A+B minus None change per arm incl. GeoBRIDGE. Caveats: the None (C0) condition contains identity rows (injected-profile oracle = GeoBRIDGE k=0; oracle + PCs = GeoBRIDGE by construction); the rank-audit table has no None rows, so the hidden-subspace oracles start at Temporal (A). Tables give differences, not per-arm means with CI.
-- **S_mech.png** - T13_story_E4E5/full/E5_energy_by_k_summary.tsv, T13b_E4_strat/full/E4strat_summary_t95.tsv. (a,b) Energy captured (fraction of total) versus k for observed unspliced abundance (Mu, solid), injected signal (dashed) and GRN production (dotted), coloured by condition, tree and bifurcation topologies; production range k=0..8 shaded. Injected signal is undefined for None. (c) Score–shared-signal Spearman correlation (A+B) per distance stratum (d=2, d=3, d=4+, Unconnected, All non-direct) for GeoBRIDGE (filled) and GeoBRIDGE k=0 (open), 95% CI over 6 GRNs.
-- **S_fg.png** - T14_fg_direction/fg_auroc.tsv, fg_arm_reslice.tsv. (a) AUROC of the fraction of target change in the removed subspace for KO-down vs non-responders, KO-up vs non-responders and KO-down vs KO-up, per real-data endpoint (colour), bootstrap 95% CI. (b) GeoBRIDGE minus control AUROC for controls k=0 (black open), Random directions (grey), Pseudotime splines (violet), Mature-target (spliced) substitution (green); circle = KO-down, triangle = KO-up, 95% CI. Caveat: descriptive only; no multiplicity correction.
-- **S_pairwindow.png** - E11_pairwindow/summary.tsv. (a) GeoBRIDGE (k=0..8) AP and direct-vs-indirect (DvI23) AUROC, None and A+B, over lower x upper bound of the pair window |Δpseudotime| (pair cap 40; mean of 6 GRNs); grey shade = value (per panel), production window (0.02, 0.25) boxed in yellow. (b) Same for GeoBRIDGE k=0 (SI sub-row). (c,d) Pair-cap effect (10/20/40/80) at the production window for AP and DvI23 AUROC, colour = condition, GeoBRIDGE solid/filled, k=0 dashed/open. Caveat: no CIs in the source table for the heatmaps; cap 10/20/80 exist only at the production window.
-- **S_isowindow.png** - E12_isowindow/SUMMARY_BY_METHOD_COND.tsv, PAIRED_VS_0p02.tsv. (a) Sign balanced accuracy versus near-isochronic window |Δpseudotime| (0.005-0.08) per condition (colour), production 0.02 dotted, forward-pair k=0 (centred) reference dashed per condition. (b) Paired difference vs window 0.02 with 95% CI over 6 GRNs. Caveat: the uncentred forward-pair reference is in the source tables but not drawn.
-- **S_kcurve_synth.png** - T5_kcurve/kcurve_summary.tsv (cumulative), T6_k0delta/delta_vs_k0.tsv, T7_kjustify/logo_cv.tsv. (a,b) Cumulative AP and DvI23 AUROC versus maximum depth K (0..K) for tree and bifurcation topologies, colour = condition, band = 95% CI over 6 GRNs, K=8 dotted. (c,d) Paired change versus K=0 (AP, DvI23 AUROC). (e) K selected in each leave-one-GRN-out fold (6 folds) for AP, DvI23 AUROC and AUROC; K=8 dotted. Caveat: K is not tuned on truth for production; (e) is a justification check only.
+1. Install the environment from the repository root.
 
-## SI figure file names (renamed 2026-11-04)
-Files are now prefixed by the main figure they extend (S_fig2_ synthetic, S_fig3_ knockout, S_fig4_ signed).
-Old -> new: S_dose->S_fig2_dose, S_degradation->S_fig2_degradation, S_kcurve_synth->S_fig2_kcurve, S_channel_operator->S_fig2_channel_operator,
-S_matched->S_fig2_matched, S_pairwindow->S_fig2_pairwindow, S_isowindow->S_fig2_isowindow, S_classrank->S_fig2_classrank, S_oracle->S_fig2_oracle,
-S_mech->S_fig2_mech, S_fig3e_capture_0to30->S_fig3_capture_0to30, S_fig3f_forest_prod_minus_k0->S_fig3_forest_k0, S_kreal->S_fig3_kreal,
-S_fg->S_fig3_removed_direction, S_sign_estimators->S_fig4_sign_estimators, S_sign_real->S_fig4_sign_real, S_binding->S_fig4_binding.
-Scripts may still write the old names; rename on copy.
+   ```bash
+   conda env create -f environment.yml
+   conda activate geobridge
+   ```
+
+2. Draw the figures. Each script reads its tables from `supplementary/data/` and writes PNG files to the folder given by `--out`.
+
+   ```bash
+   python supplementary/scripts/plot_figS1.py --out out/figS1
+   python supplementary/scripts/plot_figS2.py --out out/figS2
+   python supplementary/scripts/plot_figS3.py --out out/figS3
+   python supplementary/scripts/plot_figS4.py --out out/figS4
+   python supplementary/scripts/plot_figS5_S6.py --out out/figS5_S6
+   ```
+
+   Figures S1 to S4 are written as one PNG per panel. Figures S5 and S6 are written as whole figures, with the single panels in `panels/`. The scripts also write the plotted values (means, confidence intervals, p-values) as TSV files next to the PNGs.
+
+3. (Optional) Recompute the tables. Set up the workspace as described in the repository README (`export GEOBRIDGE_ROOT=/path/to/workspace; bash setup_workspace.sh`), run the compute scripts listed below from `$GEOBRIDGE_ROOT`, then collect the tables:
+
+   ```bash
+   python supplementary/scripts/make_data_tables.py
+   ```
+
+   This only selects and merges rows from the compute outputs and overwrites the files in `supplementary/data/`.
+
+## Figures
+
+All synthetic results use the bifurcation benchmark of Fig. 2: 6 GRNs, 4 conditions (no shared effect, temporal effect A, branch effect B, both), 2 simulations per GRN averaged before taking the mean and 95% t interval over GRNs. "Direct vs indirect" compares direct edges with all indirect pairs at graph distance 2 to 5.
+
+- Fig. S1, direct-versus-indirect AUPRC and conditioning depth. `plot_figS1.py`, tables `figS1_dvi_auprc.tsv` (panel a and legend; paired t-test of GeoBRIDGE against each of 7 methods, Holm correction per condition) and `figS1_kcurve.tsv` (panels b to e; GeoBRIDGE AUPRC, AUROC, direct-vs-indirect AUROC and AUPRC against the maximum depth K = 0 to 30). Computed by `gb_si_dviap_panels_2026_11_05.py` (modes `pairs` and `kc`), `gb_si_recompute_dviall_2026_11_05.py` (mode `kc_e1`) and `gb_fig2_kcurve_2026_11_01.py`.
+- Fig. S2, choice of target channel and conditioning operator. `plot_figS2.py`, tables `figS2_channel_operator.tsv` (AUPRC per GRN for each operator, channel and depth window) and `figS2_permutation_null.tsv` (label-permutation reference line). Computed by `gb_fig2_ablation_2026_10_27.py`, `gb_fig2_ablation_aggregate_2026_10_27.py` and `gb_si_figS2_permutation_null.py`.
+- Fig. S3, cell-pair window and number of pairs. `plot_figS3.py`, table `figS3_pairwindow.tsv` (heatmaps of AUPRC over the lower and upper bound of the pseudotime difference for the 4 conditions; AUPRC for 10, 20, 40 and 80 pairs per cell). Computed by `gb_e11_pairwindow_2026_11_02.py` and `gb_e11_summarize_2026_11_02.py`.
+- Fig. S4, strength of each shared effect. `plot_figS4.py`, table `figS4_amplitude_summary.tsv` (AUPRC and direct-vs-indirect AUROC for the temporal-only and branch-only amplitude series 0, 0.25, 0.5 and 1.0). Paired comparisons are in `figS4_amplitude_paired.tsv`. Computed by `gb_dose_sep_2026_11_05.py` (simulation of the new amplitudes, all methods, then `eval` and `agg`).
+- Fig. S5 and S6, knockout-response prioritization by response direction (AUROC in S5, AUPRC lift in S6). `plot_figS5_S6.py`, tables `figS5_S6_ko_direction.tsv` (KO-upregulated and KO-downregulated responders against non-responders, 95% module-bootstrap intervals with 9,999 draws, Holm correction over the 7 comparators) and `figS5_S6_k0.tsv` (GeoBRIDGE without conditioning, k = 0). These rows come from the Fig. 3 evaluation (`../figure3_knockout/results/fig3_common_v2_UOLD.tsv` and `fig3d_rebuild/full/fig3d_rebuild_table.tsv`); see `../figure3_knockout/README.md` for how they were computed.
+- Table S1 (single-cell datasets) and Table S2 (knockout datasets) list public data only. Accession numbers and download scripts are in `../data/README.md`.
+
+## Notes
+
+- `gb_si_recompute_dviall_2026_11_05.py` has other modes (`dose`, `plot`) that are not needed for these figures.
+- `gb_si_dviap_panels_2026_11_05.py pairs` reads the per-pair tables written by `../figure2_synthetic/scripts/gb_dvi_audit3_2026_10_29.py`. It also checks its AUROC values against `dviall_per_dataset.tsv`, written by `../figure2_synthetic/scripts/gb_fig2f_dviall_2026_11_05.py` (shipped in `../figure2_synthetic/results/fig2f_dviall/`).

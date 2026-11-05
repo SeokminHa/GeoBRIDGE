@@ -38,4 +38,12 @@ Paths are relative to the repository; scripts are run from `$GEOBRIDGE_ROOT` aft
 Z (`primary.py`, `score.py`), signed score (`iso.py`), CLI, tests; parity against stored internal artifacts is documented in `geobridge/README.md` (PANC RFX6: S0 max abs diff 1.6e-15; T Spearman 1.0000). The real-data parity tests need `GB_REPO` and are skipped otherwise.
 
 ## Supplementary figures
-See `supplementary/README.md` (script -> table directory map; SI figure source notes). Level: R1 from shipped `supplementary/results/` TSVs (< 5 MB each); the large per-dataset tables were not copied.
+| Figure | Plot script (`supplementary/scripts/`) | Tables (`supplementary/data/`) | Level |
+|---|---|---|---|
+| S1 | `plot_figS1.py` | `figS1_dvi_auprc.tsv`, `figS1_kcurve.tsv` | R1; R2 via `gb_si_dviap_panels_2026_11_05.py`, `gb_si_recompute_dviall_2026_11_05.py`, `gb_fig2_kcurve_2026_11_01.py` |
+| S2 | `plot_figS2.py` | `figS2_channel_operator.tsv`, `figS2_permutation_null.tsv` | R1; R2 via `gb_fig2_ablation_2026_10_27.py`, `gb_fig2_ablation_aggregate_2026_10_27.py`, `gb_si_figS2_permutation_null.py` |
+| S3 | `plot_figS3.py` | `figS3_pairwindow.tsv` | R1; R2 via `gb_e11_pairwindow_2026_11_02.py`, `gb_e11_summarize_2026_11_02.py` |
+| S4 | `plot_figS4.py` | `figS4_amplitude_summary.tsv` | R1; R3 via `gb_dose_sep_2026_11_05.py` |
+| S5, S6 | `plot_figS5_S6.py` | `figS5_S6_ko_direction.tsv`, `figS5_S6_k0.tsv` | R1; R2 via the Fig. 3 chain above |
+
+Details in `supplementary/README.md`; `supplementary/scripts/make_data_tables.py` collects the tables from the compute outputs.

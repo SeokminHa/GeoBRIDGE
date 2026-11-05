@@ -34,6 +34,4 @@ ln_res figure3_knockout/results/evaluator_inputs results/real_uniform/meta_nasce
 for d in grand_v3d_dumpT_2026_10_15 iso_pilot_2026_10_15 chip5_sens_2026_10_15 beta_rp_2026_10_15; do ln_res figure4_signed/results/$d results/signed/$d; done   # per-gene tables (TBX5, NKX2-5, RFX6)
 ln_res figure4_signed/results/kochip_audit_2026_10_15 results/signed/kochip_audit_2026_10_15
 ln_res figure4_signed/results/fig4b_trend.tsv manuscript/figures_2026_10_28/fig4_dvi/style_2026_10_29/fig4b_trend.tsv
-# Supplementary plotting inputs
-ln_res supplementary/results results/signed/r2fix_2026_11_01
 echo "workspace ready at $R  (scripts: $(ls "$R/scratch" | wc -l) files). Now: export GEOBRIDGE_ROOT=$R and follow the figure READMEs."

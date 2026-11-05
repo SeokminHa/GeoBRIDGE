@@ -1,10 +1,10 @@
-"""Fig 2 (SERGIO TF32REP) k-curves, PI 2026-11-01: GeoBRIDGE performance vs conditioning depth, K = 0..30.
+"""Fig 2 (SERGIO TF32REP) k-curves: GeoBRIDGE performance vs conditioning depth, K = 0..30.
 EVALUATION ONLY on stored PRIMARY raw |S| (raw/geobridge_raw.npz 'TRUE|U|<root>|absS', operator R1, channel U, depths 0..30); no rescoring.
 Two depth views: cumulative = frozen aggregator gb_primary.zcons over k = 0..K (production = K 8); single = zcons over [K] only.
 Metrics per dataset: AP, AUROC (direct edges vs all other candidate pairs), DvI AUROC / DvI AP for direct (d=1) vs indirect,
 indirect = {2,3} (DvI23, manuscript Fig 2f definition) and {2} (DvI2, TABLE.tsv definition). Sims averaged within GRN; mean and 95% t CI over 6 GRNs.
 Parity: cumulative K=8 must equal TABLE.tsv GB (AP, AUROC, DvI2) and ablation abl_*.tsv R1/U window rows (AP, AUROC, DvI2, DvI3) for every K.
-usage (server, repo root): script OUT [--grns 501,...] [--topos bifurcation,tree]"""
+usage (from $GEOBRIDGE_ROOT): script OUT [--grns 501,...] [--topos bifurcation,tree]"""
 import sys, os, json, hashlib, numpy as np, pandas as pd
 sys.path[:0] = [(__import__("os").environ["GEOBRIDGE_ROOT"] + '/scratch')]
 import gb_tf32rep_fast_2026_10_22 as D
