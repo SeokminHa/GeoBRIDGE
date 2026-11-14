@@ -1,0 +1,11 @@
+{
+ "primary_sha256_round10": "0aabb8727c6dc90ebd0a0e816c16366ca9ef83cc31f4896ab01ffb605a39f762",
+ "fixture_sha256": "827b34e0aa4b1567bb07d10cddf4c631de7061e7a0bcd0056f670e256c0c066f",
+ "regulators": [
+  "G0",
+  "G1",
+  "G2"
+ ],
+ "d_iso_sha256_round10": "bbbd0f7a3b87f7f1899015aba787e2bda6aea57a31fc53f11b6c304093fafc18",
+ "T_sha256_round10": "b5ab5c49dbe47514b7708dd16828090065821655f7276eb612eb2822b2ab215f"
+}

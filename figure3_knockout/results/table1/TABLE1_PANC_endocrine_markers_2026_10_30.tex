@@ -1,0 +1,32 @@
+% Table 1 -- pancreatic endocrine marker genes that respond to RFX6 knockout (source: table1_main_rows.tsv, table1_wholeset_metrics.tsv; producer scratch/gb_table1_markers.py; B = 9,999).
+% Requires \usepackage{booktabs,graphicx}.
+\begin{table}[t]
+\centering
+\caption{\textbf{Ranking of independently annotated pancreatic endocrine marker genes that respond to \textit{RFX6} knockout.}
+Markers were taken from CellMarker 2024 (pancreatic Alpha, Beta, Delta, PP and endocrine cells; 53 markers in the evaluated gene universe), independently of
+GeoBRIDGE and of the knockout data; all 10 knockout-responsive markers are shown, ordered by knockout effect size. Values are within-regulator rank percentiles
+(100 = top) of each method's \textit{RFX6} target score over the same 1,353 genes; bold = highest value in the row. $^{\dagger}$GRNBoost2 and RegDiffusion assign
+tied scores to a large block of genes (mid-rank shown). The last row gives the median percentile over all 53 markers (GeoBRIDGE 64.9, 95\% control-module
+bootstrap interval 49.2--67.7); no pairwise difference to a comparator survived Holm correction across the seven comparators. Descriptive; no ChIP data are used.}
+\label{tab:panc_markers}
+\setlength{\tabcolsep}{2.6pt}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llr r rrrrrrr}
+\toprule
+Gene & Identity & KO $\log_2$FC & \textbf{GeoBRIDGE} & Velorama & FastTENET & GENIE3 & GRNBoost2 & PIDC & RegDiffusion & DeepSEM \\
+\midrule
+GCG     & Alpha        & $-11.0$ & \textbf{94.9} & 94.8          & 52.9           & 8.8  & 41.1$^{\dagger}$ & 26.9          & 15.1$^{\dagger}$ & 2.3           \\
+INS1    & Beta         & $-9.1$  & 23.3          & 51.0          & 41.0           & 20.2 & 41.1$^{\dagger}$ & \textbf{62.2} & 15.1$^{\dagger}$ & 33.5          \\
+SST     & Delta, Alpha & $-7.7$  & \textbf{95.2} & 77.1          & 46.5           & 8.1  & 41.1$^{\dagger}$ & 13.0          & 45.6             & 4.0           \\
+PCSK1   & Beta, Delta  & $-5.1$  & 24.2          & 59.2          & 68.8           & 86.9 & 41.1$^{\dagger}$ & 93.5          & 95.8             & \textbf{99.1} \\
+SLC30A8 & Beta         & $-2.5$  & \textbf{93.0} & 43.1          & 68.3           & 30.9 & 41.1$^{\dagger}$ & 77.7          & 36.8             & 45.3          \\
+NPY     & Beta         & $-2.1$  & \textbf{89.5} & 64.0          & 60.1           & 13.8 & 41.1$^{\dagger}$ & 17.4          & 47.8             & 29.4          \\
+TTC39A  & Alpha        & $-1.1$  & 49.2          & 31.1          & 56.3           & 88.1 & 97.8             & 73.0          & 85.0             & \textbf{97.9} \\
+RAB3C   & Alpha        & $-0.8$  & 60.5          & \textbf{94.6} & 28.1           & 77.9 & 41.1$^{\dagger}$ & 60.9          & 68.6             & 53.7          \\
+IGF2    & Beta         & $+0.5$  & 13.9          & 60.3          & 44.5           & 9.1  & 41.1$^{\dagger}$ & 9.8           & 15.1$^{\dagger}$ & \textbf{71.1} \\
+SYT13   & Beta         & $-0.4$  & 71.4          & 75.9          & \textbf{100.0} & 96.3 & 41.1$^{\dagger}$ & 98.7          & 99.4             & 87.0          \\
+\midrule
+\multicolumn{3}{l}{Median over all 53 markers} & \textbf{64.9} & 58.6 & 52.9 & 53.8 & 41.1 & 51.2 & 52.1 & 53.7 \\
+\bottomrule
+\end{tabular}}
+\end{table}

@@ -1,0 +1,193 @@
+# separate A-only / B-only amplitude series, bifurcation only
+import json, os, shutil, socket, subprocess, sys, time
+import numpy as np
+R = __import__("os").environ["GEOBRIDGE_ROOT"]; sys.path.insert(0, f"{R}/scratch")
+import gb_tf32rep as T
+MAIN = T.MAIN_ROOT; DOSE = f"{MAIN}/dose_sep_2026_11_05"; PY = T.PY; SOTA = os.path.join(os.environ.get("GB_GB_SOTA_BIN", os.path.dirname(sys.executable)), "python"); THIS = os.path.abspath(__file__)
+STORED = {"C0": (0.0, 0.0), "C1": (0.5, 0.0), "C2": (0.0, 0.5)}; NEW = {"AA025": (0.25, 0.0), "AA100": (1.0, 0.0), "BB025": (0.0, 0.25), "BB100": (0.0, 1.0)}; AMP = {**STORED, **NEW, "C1R": (0.5, 0.0)}
+GRNS, TOPOS, SIMS = T.GRNS, ("bifurcation",), T.SIMS
+tag = T.tagof
+def base(c): return MAIN if c in STORED else DOSE
+T.ROOT = DOSE
+T.gdir = lambda g, t: f"{DOSE}/g{g}/{t}"
+T.dsdir = lambda g, t, c, s: f"{base(c)}/g{g}/{t}/{c}/{tag(t, g, s)}"          # h5path() resolves dsdir via module globals
+T.score_path = lambda m, key: f"{DOSE}/scores/{m}/g{key[1]}_{key[2]}_{key[3]}_s{key[4]}.npz"
+def velo_path(g, t, c, s): return f"{MAIN}/g{g}/{t}/velorama_rt0/{c}/{tag(t, g, s)}.npz" if c in STORED else f"{DOSE}/velorama_rt0/g{g}_{t}/{c}/{tag(t, g, s)}.npz"
+def score_file(m, g, t, c, s): return f"{MAIN}/scores/{m}/g{g}_{t}_{c}_s{s}.npz" if c in STORED else T.score_path(m, ("rep", g, t, c, s))   # eval reads stored scores for C0/C3
+def setup():
+    for g in GRNS:
+        for t in TOPOS:
+            d = f"{DOSE}/g{g}/{t}"; os.makedirs(d, exist_ok=True)
+            for f in ("frozen_half.json", "roster_pre.json"):
+                if not os.path.exists(f"{d}/{f}"): shutil.copy(f"{MAIN}/g{g}/{t}/{f}", f"{d}/{f}")
+    os.makedirs(f"{DOSE}/_q", exist_ok=True)
+def gen(g, t, c, s):
+    (aA, aB) = AMP[c]; gd = f"{DOSE}/g{g}/{t}"
+    e = dict(os.environ, PYTHONNOUSERSITE="1", OMP_NUM_THREADS="8", MKL_NUM_THREADS="8", AB_GRN=str(g), AB_TOPO=t, GB_PILOT_FAST="1", GB_REP_FAST="1")
+    return subprocess.run([PY, T.GEN, "ab_run", gd, c, str(aA), str(aB), ".5", ".5", str(s)], env=e, stdout=open(f"{gd}/log_{c}_s{s}.txt", "w"), stderr=subprocess.STDOUT).returncode
+def gen_ok(g, t, c, s):
+    try: return json.load(open(f"{T.dsdir(g, t, c, s)}/record.json")).get("status") == "OK" and os.path.exists(T.h5path(g, t, c, s)) and os.path.exists(f"{T.dsdir(g, t, c, s)}/raw/geobridge_raw.npz")
+    except Exception: return False
+def velo(g, t, c, s, gpu):
+    import gb_velorama_official_rt0 as M
+    h5 = T.h5path(g, t, c, s); pre = json.load(open(f"{DOSE}/g{g}/{t}/roster_pre.json")); cands = pre["cands"]; tg = tag(t, g, s)
+    cols = np.array([[x for x in range(100) if x != q] for q in cands]); assert T.sha(cols.tobytes()) == pre["cols_sha"]
+    st = f"{DOSE}/velo_stage/g{g}_{t}/{c}/{tg}"; os.makedirs(f"{st}/raw", exist_ok=True)
+    if not os.path.exists(f"{st}/{tg}.h5ad"): os.symlink(h5, f"{st}/{tg}.h5ad")
+    json.dump(dict(cands=cands, n=100), open(f"{st}/cands.json", "w")); np.savez(f"{st}/raw/geobridge_raw.npz", source_gene_index=np.array(cands), cols_PI=cols)
+    vo = f"{DOSE}/velorama_rt0/g{g}_{t}/{c}/{tg}.npz"; M.OUT = os.path.dirname(vo)      # NB: gate on stored C3 writes here too (never into MAIN)
+    if os.path.exists(vo) and not T.score_ok(vo): os.remove(vo)
+    M.run(st, int(gpu))
+    if not T.score_ok(vo):
+        if os.path.exists(vo): os.remove(vo)
+        raise SystemExit(f"INVALID velorama output {vo}")
+    z = np.load(vo); assert np.array_equal(z["src"], np.array(cands)) and np.array_equal(z["cols"], cols)
+def run_task(name, gpu=None):
+    k = name.split("_"); kind = k[0]
+    if kind == "gen": _, g, t, c, s = k; sys.exit(gen(int(g), t, c, int(s)))
+    if kind == "velo": _, g, t, c, s = k; return velo(int(g), t, c, int(s), gpu)
+    _, m, g, t, c, s = k
+    if m in ("regdiffusion", "fasttenet") and os.path.realpath(sys.executable) != os.path.realpath(SOTA):
+        sys.exit(subprocess.run([SOTA, "-s", THIS, "task", name], env=dict(os.environ, PYTHONNOUSERSITE="1")).returncode)
+    T.ext_run(m, ("rep", int(g), t, c, int(s)))
+CPU_EXT = ("genie3", "grnboost2", "pidc", "pearson"); GPU_EXT = ("deepsem", "regdiffusion", "fasttenet")
+def all_tasks():
+    L = []
+    for c in NEW:
+        for g in GRNS:
+            for t in TOPOS:
+                for s in SIMS: L.append(("gen", f"gen_{g}_{t}_{c}_{s}", g, t, c, s))
+    for m in ("velo",) + GPU_EXT + CPU_EXT:
+        for c in NEW:
+            for g in GRNS:
+                for t in TOPOS:
+                    for s in SIMS: L.append((m, f"velo_{g}_{t}_{c}_{s}" if m == "velo" else f"ext_{m}_{g}_{t}_{c}_{s}", g, t, c, s))
+    return L
+def out_ok(kind, g, t, c, s):
+    if kind == "gen": return gen_ok(g, t, c, s)
+    p = f"{DOSE}/velorama_rt0/g{g}_{t}/{c}/{tag(t, g, s)}.npz" if kind == "velo" else T.score_path(kind, ("rep", g, t, c, s)); return T.score_ok(p)
+Q = lambda n: f"{DOSE}/_q/{n}"
+def worker(slots, kinds, gpu):
+    kinds = kinds.split(","); os.makedirs(f"{DOSE}/_q", exist_ok=True); mine = [x for x in all_tasks() if x[0] in kinds]; running = {}; host = socket.gethostname()
+    while True:
+        for n, (p, t0) in list(running.items()):
+            rc = p.poll()
+            if rc is None: continue
+            del running[n]; x = next(y for y in mine if y[1] == n); ok = rc == 0 and out_ok(x[0], *x[2:])
+            open(Q(n + (".done" if ok else ".fail")), "w").write(f"{host} rc={rc} wall={time.time() - t0:.0f}\n"); print("DONE" if ok else "FAIL", n, f"{time.time() - t0:.0f}s", flush=True)
+        pending = False
+        for kind, n, g, t, c, s in mine:
+            if os.path.exists(Q(n + ".done")) or os.path.exists(Q(n + ".fail")) or n in running or os.path.isdir(Q(n + ".lock")): continue
+            if out_ok(kind, g, t, c, s): open(Q(n + ".done"), "w").write("preexisting\n"); continue
+            if kind != "gen" and os.path.exists(Q(f"gen_{g}_{t}_{c}_{s}.fail")): open(Q(n + ".fail"), "w").write("blocked\n"); continue
+            pending = True
+            if len(running) >= slots: continue
+            if kind != "gen" and not (gen_ok(g, t, c, s) and time.time() - os.path.getmtime(T.h5path(g, t, c, s)) > 60): continue
+            try: os.mkdir(Q(n + ".lock"))
+            except FileExistsError: continue
+            env = dict(os.environ, PYTHONNOUSERSITE="1", MPLCONFIGDIR="/tmp")
+            if gpu is not None: env["CUDA_VISIBLE_DEVICES"] = str(gpu)
+            lf = open(f"{DOSE}/_q/{n}.log", "w"); running[n] = (subprocess.Popen([PY, "-s", THIS, "task", n] + ([str(gpu)] if gpu is not None else []), stdout=lf, stderr=subprocess.STDOUT, env=env, cwd=R), time.time()); print("START", n, flush=True)
+        if not running and not pending: print("nothing left", flush=True); break
+        time.sleep(15)
+def status():
+    import collections; C = collections.defaultdict(collections.Counter)
+    for kind, n, g, t, c, s in all_tasks():
+        C[kind]["ok" if out_ok(kind, g, t, c, s) else "fail" if os.path.exists(Q(n + ".fail")) else "run" if os.path.isdir(Q(n + ".lock")) else "open"] += 1
+    for k, v in C.items(): print(k, dict(v))
+# eval
+EXT = T.EXT_ALL
+def metrics(sc, Y, Dm):
+    from sklearn.metrics import roc_auc_score as AUC, average_precision_score as AP
+    ok = np.isfinite(sc); m = ok & ((Dm == 1) | (Dm == 2) | (Dm == 3)); mm = ok & (Dm >= 1) & (Dm <= 5)   # DvIall: d=1 vs d 2..5, unreachable (99) excluded
+    return dict(AP=AP(Y[ok], sc[ok]), AUROC=AUC(Y[ok], sc[ok]), DvI23=AUC(Dm[m] == 1, sc[m]), DvIall=AUC(Dm[mm] == 1, sc[mm]), n_finite=int(ok.sum()))
+# gate=True: stored C3 g501 bifurcation s1 with comparator scores/velorama from DOSE (fresh reruns) -> DOSE/GATE_FRESH.tsv; else the dose table
+def eval_all(gate=False):
+    import pandas as pd, gb_b4_score as B
+    V = T.V_(); rows = []; err = []
+    for g in ([501] if gate else GRNS):
+        G = V.generate_grn(g); gt = sorted((int(a), int(b)) for a, b in G["gt"]); D = T.dist_matrix(gt)
+        for t in (["bifurcation"] if gate else TOPOS):
+            for c in (["C1R"] if gate else [c for c in AMP if c != "C1R"]):
+                for s in ([1] if gate else SIMS):
+                    try:
+                        dd = T.dsdir(g, t, c, s); Z = np.load(f"{dd}/raw/geobridge_raw.npz"); src, cols = np.asarray(Z["source_gene_index"], int), np.asarray(Z["cols_PI"], int)
+                        rec = json.load(open(f"{dd}/record.json")); assert rec["status"] == "OK"
+                        A = {r: np.asarray(Z[f"TRUE|U|{r}|absS"], float) for r in B.GP.ROOTS}; P = [{r: A[r][:, i, cols[i]].T for r in B.GP.ROOTS} for i in range(len(src))]
+                        S = {"GB": B.zc(P, range(0, 9)), "GB_k0": B.zc(P, range(0, 1))}
+                        vf = velo_path(g, t, c, s)
+                        if os.path.exists(vf): z = np.load(vf); assert np.array_equal(z["src"], src) and np.array_equal(z["cols"], cols); S["VEL"] = np.asarray(z["score"], float)
+                        for m in EXT:
+                            p = score_file(m, g, t, c, s)
+                            if os.path.exists(p): z = np.load(p); assert np.array_equal(z["src"], src) and np.array_equal(z["cols"], cols); S[m] = np.asarray(z["score"], float)
+                        Dm = np.array([[D[q, int(x)] for x in cols[i]] for i, q in enumerate(src)]); Y = Dm == 1
+                        for nm, sc in S.items():
+                            if not (sc.shape == (32, 99) and np.isfinite(sc).all()): err.append(dict(grn=g, topo=t, cond=c, sim=s, method=nm, ERROR="nonfinite")); continue
+                            rows.append(dict(grn=g, topo=t, cond=c, amp_A=AMP[c][0], amp_B=AMP[c][1], sim=s, method=nm, n_mr_clipped=rec["ab"]["n_mr_clipped"], **metrics(sc, Y, Dm)))
+                    except Exception as e: err.append(dict(grn=g, topo=t, cond=c, sim=s, method="*", ERROR=repr(e)[:200]))
+    pd.DataFrame(rows).to_csv(f"{DOSE}/{'GATE_FRESH' if gate else 'DOSE_DATASETS'}.tsv", sep="\t", index=False); pd.DataFrame(err).to_csv(f"{DOSE}/{'GATE' if gate else 'DOSE'}_EVAL_ERRORS.tsv", sep="\t", index=False); print(len(rows), "rows;", len(err), "errors")
+# compare fresh gate table to stored table.tsv
+def gate_cmp():
+    import pandas as pd
+    F = pd.read_csv(f"{DOSE}/GATE_FRESH.tsv", sep="\t"); S = pd.read_csv(f"{MAIN}/TABLE.tsv", sep="\t"); S = S[(S.grn == 501) & (S.topo == "bifurcation") & (S.cond == "C1") & (S.sim == 1)]
+    A = pd.read_csv(f"{R}/results/signed/dvi_audit3_2026_10_29/full/agg/D1_vs_D2D3_datasets.tsv", sep="\t"); A = A[(A.grn == 501) & (A.topo == "bifurcation") & (A.cond == "C1") & (A.sim == 1) & (A.neg == "D2+D3")]
+    M = F.merge(S[["method", "AP", "AUROC"]], on="method", suffixes=("", "_stored")).merge(A[["method", "pooled"]].rename(columns={"pooled": "DvI23_stored"}), on="method", how="left")
+    for k in ("AP", "AUROC", "DvI23"): M["d_" + k] = M[k] - M[k + "_stored"]
+    pd.set_option("display.width", 250); print(M[["method", "AP", "AP_stored", "d_AP", "AUROC", "AUROC_stored", "d_AUROC", "DvI23", "DvI23_stored", "d_DvI23"]].round(5).to_string())
+SER = dict(A=["C0", "AA025", "C1", "AA100"], B=["C0", "BB025", "C2", "BB100"])
+def agg():
+    import pandas as pd, matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
+    from scipy import stats
+    from statsmodels.stats.multitest import multipletests
+    D0 = pd.read_csv(f"{DOSE}/DOSE_DATASETS.tsv", sep="\t"); MET = ["AP", "AUROC", "DvIall", "DvI23"]; out = []; PD = []
+    D = pd.concat([D0[D0.cond.isin(cs)].assign(series=sr, amp=lambda d, sr=sr: d["amp_" + sr]) for sr, cs in SER.items()])
+    G = D.groupby(["series", "amp", "method", "grn"])[MET + ["n_mr_clipped"]].mean().reset_index()
+    nsim = D.groupby(["series", "amp", "method", "grn"]).size()
+    print("sims per (series,amp,method,grn):", dict(nsim.value_counts()))
+    for (sr, a, m), d in G.groupby(["series", "amp", "method"]):
+        r = dict(series=sr, amp=a, method=m, n_grn=len(d), n_mr_clipped_mean=d.n_mr_clipped.mean(), n_mr_clipped_max=d.n_mr_clipped.max())
+        for k in MET: x = d[k].values; r[k] = x.mean(); r[k + "_ci95_half"] = stats.t.ppf(.975, len(x) - 1) * x.std(ddof=1) / np.sqrt(len(x)) if len(x) > 1 else np.nan
+        out.append(r)
+    S = pd.DataFrame(out); comps = ["VEL"] + list(EXT)
+    for (sr, a), d in G.groupby(["series", "amp"]):
+        for k in MET:
+            w = d.pivot(index="grn", columns="method", values=k); ps = []; rr = []
+            for m in comps:
+                if m not in w or "GB" not in w: continue
+                x = (w["GB"] - w[m]).dropna(); p = stats.ttest_rel(w["GB"][x.index], w[m][x.index]).pvalue if len(x) > 1 else np.nan; ps.append(p)
+                rr.append(dict(series=sr, amp=a, metric=k, comparator=m, n_grn=len(x), diff_GB_minus=x.mean(), p_paired_t=p))
+            ph = multipletests([p if np.isfinite(p) else 1 for p in ps], method="holm")[1] if ps else []
+            for r_, p_ in zip(rr, ph): r_["p_holm"] = p_
+            PD += rr
+    P = pd.DataFrame(PD); S.to_csv(f"{DOSE}/SUMMARY.tsv", sep="\t", index=False); P.to_csv(f"{DOSE}/SUMMARY_PAIRED.tsv", sep="\t", index=False)
+    V = S.merge(P.pivot_table(index=["series", "amp", "comparator"], columns="metric", values="p_holm").add_prefix("p_holm_").reset_index().rename(columns={"comparator": "method"}), on=["series", "amp", "method"], how="left")
+    V.to_csv(f"{DOSE}/S_fig2_dose_sep_values.tsv", sep="\t", index=False)
+    NM = dict(GB="GeoBRIDGE", GB_k0="GeoBRIDGE (k = 0)", VEL="Velorama", fasttenet="FastTENET", genie3="GENIE3", grnboost2="GRNBoost2", pidc="PIDC", regdiffusion="RegDiffusion", deepsem="DeepSEM", pearson="Pearson |r|")
+    CO = dict(VEL="#2ca02c", fasttenet="#17becf", genie3="#ff7f0e", grnboost2="#8c564b", pidc="#9467bd", regdiffusion="#e377c2", deepsem="#bcbd22", pearson="#7f7f7f")
+    plt.rcParams.update({"font.size": 8, "axes.spines.top": False, "axes.spines.right": False})
+    f, ax = plt.subplots(2, 2, figsize=(7.2, 6.0), sharex=True)
+    for i, (sr, xl) in enumerate((("A", "Temporal (A-only) amplitude $a_A$ ($a_B=0$)"), ("B", "Branch (B-only) amplitude $a_B$ ($a_A=0$)"))):
+        for j, (k, lab) in enumerate((("AP", "AUPRC"), ("DvIall", "Direct-vs-indirect AUROC"))):
+            a = ax[i, j]
+            for m in ["VEL", "genie3", "grnboost2", "pidc", "regdiffusion", "deepsem", "fasttenet", "pearson", "GB_k0", "GB"]:
+                d = S[(S.series == sr) & (S.method == m)].sort_values("amp")
+                if d.empty: continue
+                if m == "GB": a.errorbar(d.amp, d[k], yerr=d[k + "_ci95_half"], color="k", lw=2, marker="o", ms=4, capsize=2, label=NM[m], zorder=5)
+                elif m == "GB_k0": a.plot(d.amp, d[k], color="k", ls="--", marker="o", mfc="white", ms=4, lw=1, label=NM[m], zorder=4)
+                else: a.plot(d.amp, d[k], color=CO[m], marker="o", ms=2.5, lw=.9, label=NM[m])
+            a.axhline(.5 if k == "DvIall" else 240 / 3168, color="grey", ls=":", lw=.7)
+            a.set_title(f"Bifurcation, {sr}-only", fontsize=8); a.set_ylabel(lab); a.set_xticks([0, .25, .5, 1.0]); a.set_xlabel(xl)
+    h, l = ax[0, 0].get_legend_handles_labels(); f.legend(h[::-1], l[::-1], loc="lower center", ncol=5, frameon=False, fontsize=7)
+    f.tight_layout(rect=(0, .09, 1, 1)); f.savefig(f"{DOSE}/S_fig2_dose_sep.png", dpi=300)
+    from PIL import Image; Image.open(f"{DOSE}/S_fig2_dose_sep.png").convert("RGB").save(f"{DOSE}/S_fig2_dose_sep.png")
+    pd.set_option("display.width", 250); print(V[V.method.isin(["GB"])].round(3).to_string())
+if __name__ == "__main__":
+    c = sys.argv[1]
+    if c == "setup": setup()
+    elif c == "task": run_task(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None)
+    elif c == "worker": worker(int(sys.argv[2]), sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else None)
+    elif c == "status": status()
+    elif c == "eval": eval_all()
+    elif c == "gateeval": eval_all(True)
+    elif c == "gatecmp": gate_cmp()
+    elif c == "agg": agg()

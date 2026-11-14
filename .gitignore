@@ -1,0 +1,21 @@
+# data and large intermediates are never committed
+data/raw/
+data/downloads/
+data/*/downloads/
+*.h5ad
+*.loom
+*.bam
+*.fastq.gz
+*.npz
+*.pt
+results/**/draws*.npz
+**/synthetic/
+**/_work/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+# shipped small binaries: test fixture + pairs file, Fig. 3 evaluator input vectors
+!geobridge/fixture/*.h5ad
+!geobridge/fixture/*.npz
+!figure3_knockout/results/evaluator_inputs/*.npz

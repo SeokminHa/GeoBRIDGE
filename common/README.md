@@ -1,0 +1,66 @@
+# GeoBRIDGE common code
+
+Shared scoring, loader and evaluator modules used by the figure scripts (linked flat into `$GEOBRIDGE_ROOT/scratch` by `setup_workspace.sh`).
+
+## Scripts
+
+- `gb_adds.py`: incremental value, component ablations and depth regret
+- `gb_b4_score.py`: aggregate stored U-channel profiles with gb_primary.zcons
+- `gb_bm_sweep.py`: bone marrow five-TF oracle sweep against ChIP binding truth, with rIgG as negative control
+- `gb_breadth_truth.py`: response-breadth truth (evaluation only) for BM (GSE274113) and K562 (Replogle essential)
+- `gb_canon_table.py`: canonical performance tables
+- `gb_canonical.py`: canonical preprocessing builder and validator; one code path for every dataset
+- `gb_catalogue_scores.py`: truth-free primary inputs for all observationally eligible catalogue TFs
+- `gb_composites.py`: unsupervised composites of the nine reference features
+- `gb_cop_alignment.py`: compare score profiles at matched C_op values
+- `gb_decomp.py`: post-hoc conditional feature-ablation
+- `gb_defense_dutil.py`: depth-resolved utility of D = Z - P
+- `gb_defense_recompute_v1_89c4c21b.py`: permutation and split-sample diagnostics
+- `gb_dev_evaluate.py`: evaluate saved scores against endpoint labels
+- `gb_eval_exposed.py`: signed evaluation of fixed observational scores
+- `gb_fig1_eligibility.py`: observational eligibility and ortholog mapping
+- `gb_fig3_mech.py`: four-class, matched and continuous endpoint analyses
+- `gb_fig3d_magnitude.py`: association between score magnitude and knockout effect size
+- `gb_final_benchmark.py`: canonical final six-method benchmark
+- `gb_gata1_fourclass_canon.py`: GATA1 four-class KO x ChIP analysis on the canonical substrate, across every depth
+- `gb_gata1_truth_v2.py`: build GATA1 occupancy and response labels for evaluation
+- `gb_geometry_audit.py`: conditioning-depth geometry from observational inputs
+- `gb_geometry_matrix.py`: truth-free geometry / ranking-stability matrix for every canonical real substrate
+- `gb_gse274113_truth.py`: GSE274113 CRISPRi truth panel -- the independent-study endpoint for bone-marrow transfer
+- `gb_harmonized_tri.py`: harmonized GATA1 / KLF1 functional-vs-occupancy lattice
+- `gb_hist_specificity_family.py`: historical GATA1 regulator-specificity evaluation
+- `gb_infomatched.py`: comparators using the same forward pairs and R1/R3 projection
+- `gb_interim_fig1.py`: cross-system benchmark using available comparator outputs
+- `gb_iso_ab.py`: forward versus isochronic pairs on raw and DPT-residual layers
+- `gb_iso_lib.py`: near-isochronic pair library: pair construction, rewiring, pair-sum kernels, graph/smoothing diagnostics
+- `gb_k562_boundfunc.py`: K562 bound-functional evaluation
+- `gb_k562_truth.py`: K562 CRISPRi differential-response labels
+- `gb_killtests.py`: regulator-matching null and incremental-prediction checks
+- `gb_klf1_eval.py`: evaluate KLF1 predictions after checksum verification
+- `gb_kochip_audit_lib.py`: shared KO and ChIP evaluation helpers
+- `gb_kprofile_geometry.py`: full k profile and truth-free spectral geometry for GATA1 and PANC/RFX6
+- `gb_kt5.py`: pseudotime-permutation control for cell pairing
+- `gb_ladder.py`: evaluate target priors and perturbation-response breadth
+- `gb_layers.py`: layered evaluation of the GeoBRIDGE score on every scoreable real substrate
+- `gb_m1_calib3.py`: count-scale source calibration
+- `gb_m1_select.py`: small calibration-selection kernel
+- `gb_m1_source.py`: M1 calibrated count-scale source innovation
+- `gb_nullp_challenge.py`: permutation-null comparison of target priors
+- `gb_pairsubset_scores.py`: catalogue-bank scores on branch-based subsets of the production pairs
+- `gb_primary.py`: primary GeoBRIDGE score Z
+- `gb_prior_semantics.py`: target-prior supplemental analyses (evaluation only; the production score Z is unchanged)
+- `gb_readout.py`: evaluate target panels, prior construction and cross-context transfer
+- `gb_real_feasibility.py`: truth-blind real-data feasibility
+- `gb_regvelo_noprior_gpu.py`: regVelo no-prior comparator on GPU
+- `gb_sergio_drift_v5.py`: SERGIO simulations with shared developmental variation
+- `gb_sergio_velorama_v2.py`: run Velorama on SERGIO exports with official z-score preprocessing
+- `gb_shared_motion.py`: shared-motion diagnostics
+- `gb_sota_ext.py`: extra RNA-only observational GRN comparators
+- `gb_sota_run.py`: comparator runs on canonical inputs
+- `gb_substrate.py`: load canonical datasets and their stored cell pairs
+- `gb_tableBC.py`: assemble Tables B and C
+- `gb_tf32nd_reference.py`: TF32ND reference simulator with shared developmental variation
+- `gb_topo_adv_eval.py`: topology benchmark evaluation
+- `gb_topo_adv_gpu.py`: GPU comparators on World-P confirmation datasets
+- `gb_truth_v2_load.py`: verified consumer loader for GATA1_PHYSICAL_FUNCTIONAL_V2
+- `gb_uvnull.py`: vectorised U-V paired permutation null

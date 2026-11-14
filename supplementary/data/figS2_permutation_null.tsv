@@ -1,0 +1,2 @@
+metric	operator	channel	mean	n_draws
+AP	label_permutation	all	0.07844635475206387	86400
